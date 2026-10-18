@@ -20,15 +20,12 @@ import {
   type GameWithCards,
 } from '@/types'
 
-const EMPTY_CARD = {
-  type: 'speech' as ActivityType,
-  prompt: '',
-  image_url: '',
-  target_text: '',
-  accepted_answers: '',
-  missing_indices: '',
-  hints: '',
-}
+const CARD_TYPES: { type: ActivityType; label: string; hint: string }[] = [
+  { type: 'picture_missing_letters', label: 'Spelling', hint: 'Picture + fill missing letters' },
+  { type: 'speech', label: 'Speaking', hint: 'Say the word out loud' },
+  { type: 'listening', label: 'Listening', hint: 'Hear the word, then type it' },
+  { type: 'sentence', label: 'Sentence', hint: 'Read a full sentence' },
+]
 
 export default function GameEditor() {
   const { id } = useParams<{ id: string }>()
@@ -47,7 +44,12 @@ export default function GameEditor() {
   const [message, setMessage] = useState('')
   const [showCardForm, setShowCardForm] = useState(false)
   const [editingCard, setEditingCard] = useState<ActivityCard | null>(null)
-  const [cardForm, setCardForm] = useState({ ...EMPTY_CARD })
+
+  // Simple card fields only
+  const [cardType, setCardType] = useState<ActivityType>('speech')
+  const [cardWord, setCardWord] = useState('')
+  const [cardPrompt, setCardPrompt] = useState('')
+  const [cardImage, setCardImage] = useState('')
 
   const load = useCallback(async () => {
     if (isNew || !id) return
@@ -74,6 +76,14 @@ export default function GameEditor() {
   useEffect(() => {
     void load()
   }, [load])
+
+  function resetCardForm() {
+    setCardType('speech')
+    setCardWord('')
+    setCardPrompt('')
+    setCardImage('')
+    setEditingCard(null)
+  }
 
   async function handleSaveMeta(e: FormEvent) {
     e.preventDefault()
@@ -113,22 +123,16 @@ export default function GameEditor() {
   }
 
   function openNewCard() {
-    setEditingCard(null)
-    setCardForm({ ...EMPTY_CARD })
+    resetCardForm()
     setShowCardForm(true)
   }
 
   function openEditCard(card: ActivityCard) {
     setEditingCard(card)
-    setCardForm({
-      type: card.type,
-      prompt: card.prompt || '',
-      image_url: card.image_url || '',
-      target_text: card.target_text || '',
-      accepted_answers: (card.accepted_answers || []).join(', '),
-      missing_indices: (card.missing_letter_indices || []).join(', '),
-      hints: (card.hints || []).join(', '),
-    })
+    setCardType(card.type)
+    setCardWord(card.target_text || '')
+    setCardPrompt(card.prompt || '')
+    setCardImage(card.image_url || '')
     setShowCardForm(true)
   }
 
@@ -138,41 +142,21 @@ export default function GameEditor() {
       setError('Save the game first, then add cards.')
       return
     }
+    const word = cardWord.trim()
+    if (!word) {
+      setError('Enter the word or sentence students should practice.')
+      return
+    }
     setSaving(true)
     setError('')
     setMessage('')
     try {
-      const accepted = cardForm.accepted_answers
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean)
-      const missing = cardForm.missing_indices
-        .split(',')
-        .map((s) => parseInt(s.trim(), 10))
-        .filter((n) => !Number.isNaN(n))
-      const hints = cardForm.hints
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean)
-
-      if (cardForm.type === 'picture_missing_letters' && !cardForm.target_text.trim()) {
-        throw new Error('Target word is required for Picture + Missing Letters.')
-      }
-      if (
-        (cardForm.type === 'speech' || cardForm.type === 'listening' || cardForm.type === 'sentence') &&
-        !cardForm.target_text.trim()
-      ) {
-        throw new Error('Target text is required for this activity type.')
-      }
-
       const payload = {
-        type: cardForm.type,
-        prompt: cardForm.prompt || undefined,
-        image_url: cardForm.image_url || undefined,
-        target_text: cardForm.target_text || undefined,
-        accepted_answers: accepted.length ? accepted : cardForm.target_text ? [cardForm.target_text.trim()] : [],
-        missing_letter_indices: missing.length ? missing : undefined,
-        hints,
+        type: cardType,
+        target_text: word,
+        prompt: cardPrompt.trim() || undefined,
+        image_url: cardImage.trim() || undefined,
+        accepted_answers: [word],
       }
 
       if (editingCard) {
@@ -181,7 +165,7 @@ export default function GameEditor() {
         await addCard(id, payload)
       }
       setShowCardForm(false)
-      setEditingCard(null)
+      resetCardForm()
       await load()
       setMessage(editingCard ? 'Card updated.' : 'Card added.')
     } catch (err) {
@@ -192,7 +176,7 @@ export default function GameEditor() {
   }
 
   async function handleDeleteCard(cardId: string) {
-    if (!confirm('Delete this activity card?')) return
+    if (!confirm('Delete this card?')) return
     setSaving(true)
     setError('')
     try {
@@ -283,17 +267,16 @@ export default function GameEditor() {
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               className="w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
-              placeholder="e.g. Animal names — Grade 2"
+              placeholder="e.g. Animal names"
             />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">Description</label>
-            <textarea
+            <label className="mb-1 block text-sm font-medium text-slate-700">Description (optional)</label>
+            <input
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              rows={2}
               className="w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
-              placeholder="Optional notes for yourself"
+              placeholder="Short note for yourself"
             />
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -336,20 +319,20 @@ export default function GameEditor() {
             <section className="mt-8">
               <div className="mb-4 flex items-center justify-between">
                 <h2 className="text-lg font-semibold text-slate-900">
-                  Activity cards ({cards.length})
+                  Cards ({cards.length})
                 </h2>
                 <button
                   type="button"
                   onClick={openNewCard}
-                  className="rounded-lg border border-teal-600 px-3 py-1.5 text-sm font-medium text-teal-700 hover:bg-teal-50"
+                  className="rounded-lg bg-teal-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-teal-700"
                 >
                   + Add card
                 </button>
               </div>
 
-              {cards.length === 0 && (
+              {cards.length === 0 && !showCardForm && (
                 <p className="rounded-xl border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500">
-                  No cards yet. Add spelling, speech, listening, or sentence activities.
+                  No cards yet. Tap <strong>+ Add card</strong>, pick a type, type a word — done.
                 </p>
               )}
 
@@ -364,11 +347,8 @@ export default function GameEditor() {
                         {i + 1}. {ACTIVITY_TYPE_LABELS[card.type]}
                       </p>
                       <p className="mt-1 font-medium text-slate-900">
-                        {card.target_text || card.prompt || '(no text)'}
+                        {card.target_text || card.prompt || '(empty)'}
                       </p>
-                      {card.prompt && card.target_text && (
-                        <p className="mt-0.5 text-sm text-slate-500">{card.prompt}</p>
-                      )}
                     </div>
                     <div className="flex shrink-0 gap-2">
                       <button
@@ -394,115 +374,89 @@ export default function GameEditor() {
             {showCardForm && (
               <form
                 onSubmit={handleSaveCard}
-                className="mt-6 space-y-4 rounded-2xl border border-teal-200 bg-teal-50/40 p-6"
+                className="mt-6 space-y-5 rounded-2xl border border-teal-200 bg-white p-6 shadow-sm"
               >
-                <h3 className="font-semibold text-slate-900">
-                  {editingCard ? 'Edit card' : 'New activity card'}
+                <h3 className="text-lg font-semibold text-slate-900">
+                  {editingCard ? 'Edit card' : 'Add a card'}
                 </h3>
+
+                {/* Step 1: type as big buttons */}
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-slate-700">Type</label>
-                  <select
-                    value={cardForm.type}
-                    onChange={(e) =>
-                      setCardForm((f) => ({ ...f, type: e.target.value as ActivityType }))
-                    }
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2"
-                  >
-                    {(Object.keys(ACTIVITY_TYPE_LABELS) as ActivityType[]).map((t) => (
-                      <option key={t} value={t}>
-                        {ACTIVITY_TYPE_LABELS[t]}
-                      </option>
+                  <p className="mb-2 text-sm font-medium text-slate-700">1. What kind of practice?</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {CARD_TYPES.map((t) => (
+                      <button
+                        key={t.type}
+                        type="button"
+                        onClick={() => setCardType(t.type)}
+                        className={`rounded-xl border px-3 py-3 text-left transition ${
+                          cardType === t.type
+                            ? 'border-teal-600 bg-teal-50 ring-2 ring-teal-600'
+                            : 'border-slate-200 hover:border-slate-300'
+                        }`}
+                      >
+                        <span className="block font-semibold text-slate-900">{t.label}</span>
+                        <span className="mt-0.5 block text-xs text-slate-500">{t.hint}</span>
+                      </button>
                     ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-slate-700">Prompt (optional)</label>
-                  <input
-                    value={cardForm.prompt}
-                    onChange={(e) => setCardForm((f) => ({ ...f, prompt: e.target.value }))}
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2"
-                    placeholder="e.g. Say the name of this animal"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-slate-700">
-                    Target text / word
-                  </label>
-                  <input
-                    value={cardForm.target_text}
-                    onChange={(e) => setCardForm((f) => ({ ...f, target_text: e.target.value }))}
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2"
-                    placeholder="e.g. elephant"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-slate-700">
-                    Image URL (optional)
-                  </label>
-                  <input
-                    value={cardForm.image_url}
-                    onChange={(e) => setCardForm((f) => ({ ...f, image_url: e.target.value }))}
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2"
-                    placeholder="https://..."
-                  />
-                </div>
-                {cardForm.type === 'picture_missing_letters' && (
-                  <div>
-                    <label className="mb-1 block text-sm font-medium text-slate-700">
-                      Missing letter positions (0-based, comma-separated)
-                    </label>
-                    <input
-                      value={cardForm.missing_indices}
-                      onChange={(e) =>
-                        setCardForm((f) => ({ ...f, missing_indices: e.target.value }))
-                      }
-                      className="w-full rounded-lg border border-slate-300 px-3 py-2"
-                      placeholder="e.g. 0, 3 for _le_hant from elephant"
-                    />
-                    <p className="mt-1 text-xs text-slate-500">
-                      Leave empty to auto-hide some letters when students play (Phase 3).
-                    </p>
                   </div>
-                )}
+                </div>
+
+                {/* Step 2: the word */}
                 <div>
                   <label className="mb-1 block text-sm font-medium text-slate-700">
-                    Accepted answers (comma-separated, optional)
+                    2. Word or sentence to practice
                   </label>
                   <input
-                    value={cardForm.accepted_answers}
-                    onChange={(e) =>
-                      setCardForm((f) => ({ ...f, accepted_answers: e.target.value }))
-                    }
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2"
-                    placeholder="Defaults to target text"
+                    value={cardWord}
+                    onChange={(e) => setCardWord(e.target.value)}
+                    className="w-full rounded-lg border border-slate-300 px-3 py-3 text-lg focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                    placeholder={cardType === 'sentence' ? 'e.g. The cat sat on the mat' : 'e.g. elephant'}
+                    required
+                    autoFocus
                   />
                 </div>
+
+                {/* Optional extras collapsed by simplicity */}
                 <div>
                   <label className="mb-1 block text-sm font-medium text-slate-700">
-                    Hints (comma-separated, optional)
+                    Hint for student (optional)
                   </label>
                   <input
-                    value={cardForm.hints}
-                    onChange={(e) => setCardForm((f) => ({ ...f, hints: e.target.value }))}
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2"
+                    value={cardPrompt}
+                    onChange={(e) => setCardPrompt(e.target.value)}
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                    placeholder="e.g. A large animal with a trunk"
                   />
                 </div>
-                <div className="flex gap-3">
+
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-slate-700">
+                    Image link (optional)
+                  </label>
+                  <input
+                    value={cardImage}
+                    onChange={(e) => setCardImage(e.target.value)}
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                    placeholder="https://… paste a picture URL"
+                  />
+                </div>
+
+                <div className="flex gap-3 pt-1">
                   <button
                     type="submit"
                     disabled={saving}
-                    className="rounded-lg bg-teal-600 px-4 py-2 font-medium text-white hover:bg-teal-700 disabled:opacity-60"
+                    className="flex-1 rounded-lg bg-teal-600 px-4 py-3 font-medium text-white hover:bg-teal-700 disabled:opacity-60"
                   >
-                    {saving ? 'Saving…' : editingCard ? 'Update card' : 'Add card'}
+                    {saving ? 'Saving…' : editingCard ? 'Save changes' : 'Add this card'}
                   </button>
                   <button
                     type="button"
                     onClick={() => {
                       setShowCardForm(false)
-                      setEditingCard(null)
+                      resetCardForm()
                     }}
-                    className="rounded-lg border border-slate-300 px-4 py-2 text-slate-700 hover:bg-white"
+                    className="rounded-lg border border-slate-300 px-4 py-3 text-slate-700 hover:bg-slate-50"
                   >
                     Cancel
                   </button>
@@ -513,7 +467,7 @@ export default function GameEditor() {
             <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-6">
               <h2 className="font-semibold text-slate-900">Publish & share</h2>
               <p className="mt-1 text-sm text-slate-500">
-                Students open the link with no account. Full play UI comes in Phase 3.
+                Students open the link — no account needed.
               </p>
               {shareLink && (
                 <div className="mt-3 flex flex-wrap items-center gap-2">

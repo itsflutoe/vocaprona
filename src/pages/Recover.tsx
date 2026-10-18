@@ -23,6 +23,10 @@ export default function Recover() {
       setError('Password must be at least 8 characters.')
       return
     }
+    if (!username.trim() || !recoveryCode.trim()) {
+      setError('Username and recovery code are required.')
+      return
+    }
     setLoading(true)
     try {
       const result = await recoverWithCode(username, recoveryCode, newPassword)
@@ -31,7 +35,19 @@ export default function Recover() {
         setNewRecoveryCode(result.newRecoveryCode)
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Recovery failed')
+      const msg = err instanceof Error ? err.message : 'Recovery failed'
+      // Friendlier notes for common 400 cases
+      if (msg.toLowerCase().includes('no recovery code')) {
+        setError(
+          'This account has no recovery code (often if signup used the fallback path). Contact an admin to reset the password, or register a new account.'
+        )
+      } else if (msg.toLowerCase().includes('invalid')) {
+        setError(
+          'Username or recovery code is wrong. Use the exact code shown when you registered (no spaces). Username is lowercase.'
+        )
+      } else {
+        setError(msg)
+      }
     } finally {
       setLoading(false)
     }
@@ -48,9 +64,9 @@ export default function Recover() {
           {newRecoveryCode && (
             <>
               <p className="mt-4 text-sm font-medium text-slate-700">
-                Your new recovery code (save it now):
+                Your new recovery code (save it now — the old one no longer works):
               </p>
-              <div className="mt-2 rounded-lg bg-amber-50 border border-amber-200 p-4 font-mono text-center text-lg tracking-wider text-amber-900 break-all">
+              <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 p-4 text-center font-mono text-lg tracking-wider text-amber-900 break-all">
                 {newRecoveryCode}
               </div>
             </>
@@ -72,7 +88,7 @@ export default function Recover() {
         <div className="mb-8 text-center">
           <h1 className="text-2xl font-bold text-teal-700">Recover password</h1>
           <p className="mt-1 text-sm text-slate-500">
-            Use the recovery code you saved at registration
+            Use the recovery code shown once when you registered
           </p>
         </div>
 
@@ -91,6 +107,7 @@ export default function Recover() {
               id="username"
               type="text"
               required
+              autoComplete="username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               className="w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
@@ -108,7 +125,7 @@ export default function Recover() {
               value={recoveryCode}
               onChange={(e) => setRecoveryCode(e.target.value)}
               className="w-full rounded-lg border border-slate-300 px-3 py-2 font-mono text-slate-900 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
-              placeholder="Paste your recovery code"
+              placeholder="Paste the full code"
             />
           </div>
 
@@ -121,6 +138,7 @@ export default function Recover() {
               type="password"
               required
               minLength={8}
+              autoComplete="new-password"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
               className="w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
@@ -135,6 +153,7 @@ export default function Recover() {
               id="confirm"
               type="password"
               required
+              autoComplete="new-password"
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
               className="w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
@@ -151,7 +170,7 @@ export default function Recover() {
         </form>
 
         <p className="mt-6 text-center text-sm text-slate-500">
-          Lost your recovery code? Contact the platform administrator for assistance.
+          Lost your recovery code? An admin can reset your password.
         </p>
         <p className="mt-2 text-center text-sm">
           <Link to="/login" className="font-medium text-teal-600 hover:underline">
