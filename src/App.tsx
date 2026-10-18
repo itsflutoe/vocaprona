@@ -6,6 +6,8 @@ import Login from '@/pages/Login'
 import Register from '@/pages/Register'
 import Recover from '@/pages/Recover'
 import Dashboard from '@/pages/Dashboard'
+import GameEditor from '@/pages/GameEditor'
+import Play from '@/pages/Play'
 
 export default function App() {
   return (
@@ -16,11 +18,28 @@ export default function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/recover" element={<Recover />} />
+          <Route path="/play/:slug" element={<Play />} />
           <Route
             path="/dashboard"
             element={
               <ProtectedRoute>
                 <Dashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard/games/new"
+            element={
+              <ProtectedRoute>
+                <GameEditor />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard/games/:id"
+            element={
+              <ProtectedRoute>
+                <GameEditor />
               </ProtectedRoute>
             }
           />
