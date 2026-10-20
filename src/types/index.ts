@@ -93,3 +93,26 @@ export interface CreateCardInput {
   config?: Record<string, unknown>
   order_index?: number
 }
+
+export type SessionStatus = 'active' | 'ended'
+
+export interface ClassroomSession {
+  id: string
+  game_id: string
+  teacher_id: string
+  join_code: string
+  status: SessionStatus
+  created_at: string
+  ended_at: string | null
+}
+
+export interface SessionParticipant {
+  id: string
+  session_id: string
+  nickname: string
+  joined_at: string
+}
+
+export type SessionWithGame = ClassroomSession & {
+  games?: Pick<Game, 'id' | 'title' | 'share_slug' | 'thumbnail_url' | 'subject' | 'status'>
+}
