@@ -12,6 +12,41 @@ export interface PlayAttempt {
   created_at: string
 }
 
+const SESSION_KEY = 'vocaprona_session'
+
+export type PlaySessionContext = {
+  sessionId: string
+  playerLabel: string
+}
+
+export function savePlaySessionContext(ctx: PlaySessionContext): void {
+  try {
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify(ctx))
+  } catch {
+    /* private mode */
+  }
+}
+
+export function loadPlaySessionContext(): PlaySessionContext | null {
+  try {
+    const raw = sessionStorage.getItem(SESSION_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as PlaySessionContext
+    if (parsed?.sessionId) return parsed
+  } catch {
+    /* ignore */
+  }
+  return null
+}
+
+export function clearPlaySessionContext(): void {
+  try {
+    sessionStorage.removeItem(SESSION_KEY)
+  } catch {
+    /* ignore */
+  }
+}
+
 export async function submitAttempt(input: {
   gameId: string
   sessionId?: string | null
@@ -36,7 +71,6 @@ export async function submitAttempt(input: {
     .single()
 
   if (error) {
-    // Don't block the student if scoring fails
     console.warn('submitAttempt failed', error.message)
     return null
   }
@@ -48,6 +82,18 @@ export async function listAttemptsForGame(gameId: string): Promise<PlayAttempt[]
     .from('play_attempts')
     .select('*')
     .eq('game_id', gameId)
+    .order('created_at', { ascending: false })
+    .limit(200)
+
+  if (error) throw new Error(error.message)
+  return (data || []) as PlayAttempt[]
+}
+
+export async function listAttemptsForSession(sessionId: string): Promise<PlayAttempt[]> {
+  const { data, error } = await supabase
+    .from('play_attempts')
+    .select('*')
+    .eq('session_id', sessionId)
     .order('created_at', { ascending: false })
     .limit(200)
 

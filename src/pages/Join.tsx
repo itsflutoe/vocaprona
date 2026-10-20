@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { getActiveSessionByCode, joinSession } from '@/services/sessions'
+import { savePlaySessionContext } from '@/services/scores'
 
 export default function Join() {
   const [params] = useSearchParams()
@@ -32,7 +33,9 @@ export default function Join() {
         return
       }
       setGameTitle(game.title)
-      await joinSession(session.id, nickname || 'Student')
+      const name = nickname.trim() || 'Student'
+      await joinSession(session.id, name)
+      savePlaySessionContext({ sessionId: session.id, playerLabel: name })
       navigate(`/play/${game.share_slug}`, { replace: true })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not join')
@@ -76,15 +79,14 @@ export default function Join() {
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">
-              Your name (optional)
-            </label>
+            <label className="mb-1 block text-sm font-medium text-slate-700">Your name</label>
             <input
               value={nickname}
               onChange={(e) => setNickname(e.target.value)}
               className="w-full rounded-xl border border-slate-300 px-4 py-3 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
               placeholder="e.g. Mia"
               maxLength={40}
+              required
             />
           </div>
 

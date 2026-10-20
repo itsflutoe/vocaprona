@@ -7,6 +7,7 @@ import {
   listParticipants,
 } from '@/services/sessions'
 import { playUrl } from '@/services/games'
+import { listAttemptsForSession, type PlayAttempt } from '@/services/scores'
 import type { SessionParticipant, SessionWithGame } from '@/types'
 
 export default function SessionHost() {
@@ -14,6 +15,7 @@ export default function SessionHost() {
   const navigate = useNavigate()
   const [session, setSession] = useState<SessionWithGame | null>(null)
   const [participants, setParticipants] = useState<SessionParticipant[]>([])
+  const [attempts, setAttempts] = useState<PlayAttempt[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [ending, setEnding] = useState(false)
@@ -28,10 +30,12 @@ export default function SessionHost() {
         return
       }
       setSession(s)
-      if (s.status === 'active') {
-        const list = await listParticipants(id)
-        setParticipants(list)
-      }
+      const [list, scores] = await Promise.all([
+        listParticipants(id),
+        listAttemptsForSession(id).catch(() => [] as PlayAttempt[]),
+      ])
+      setParticipants(list)
+      setAttempts(scores)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load session')
     } finally {
@@ -46,7 +50,10 @@ export default function SessionHost() {
   }, [refresh])
 
   async function handleEnd() {
-    if (!id || !confirm('End this class session? Students will no longer be able to join with this code.')) {
+    if (
+      !id ||
+      !confirm('End this class session? Students will no longer be able to join with this code.')
+    ) {
       return
     }
     setEnding(true)
@@ -81,6 +88,13 @@ export default function SessionHost() {
 
   const game = session.games
   const isActive = session.status === 'active'
+
+  // Latest attempt per player label
+  const latestByPlayer = new Map<string, PlayAttempt>()
+  for (const a of [...attempts].reverse()) {
+    const key = (a.player_label || 'Anonymous').toLowerCase()
+    latestByPlayer.set(key, a)
+  }
 
   return (
     <div className="min-h-screen bg-slate-950 text-white">
@@ -125,23 +139,56 @@ export default function SessionHost() {
         )}
 
         <section className="mt-10">
-          <h2 className="text-lg font-semibold">
-            Joined ({participants.length})
-          </h2>
-          {participants.length === 0 ? (
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-lg font-semibold">Class roster</h2>
+            <p className="text-xs text-slate-500">Updates every few seconds</p>
+          </div>
+
+          {participants.length === 0 && attempts.length === 0 ? (
             <p className="mt-3 text-sm text-slate-400">Waiting for students…</p>
           ) : (
-            <ul className="mt-3 grid gap-2 sm:grid-cols-2">
-              {participants.map((p) => (
-                <li
-                  key={p.id}
-                  className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium"
-                >
-                  {p.nickname}
-                </li>
-              ))}
+            <ul className="mt-3 space-y-2">
+              {participants.map((p) => {
+                const score = latestByPlayer.get(p.nickname.toLowerCase())
+                return (
+                  <li
+                    key={p.id}
+                    className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3"
+                  >
+                    <span className="font-medium">{p.nickname}</span>
+                    {score ? (
+                      <span className="rounded-full bg-teal-500/20 px-3 py-1 text-sm font-semibold text-teal-300">
+                        {score.correct_count}/{score.total_cards} done
+                      </span>
+                    ) : (
+                      <span className="text-sm text-slate-500">Playing…</span>
+                    )}
+                  </li>
+                )
+              })}
+              {/* Scores from players not in participant list (edge cases) */}
+              {[...latestByPlayer.entries()]
+                .filter(
+                  ([key]) =>
+                    !participants.some((p) => p.nickname.toLowerCase() === key)
+                )
+                .map(([key, score]) => (
+                  <li
+                    key={score.id}
+                    className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3"
+                  >
+                    <span className="font-medium">{score.player_label || key}</span>
+                    <span className="rounded-full bg-teal-500/20 px-3 py-1 text-sm font-semibold text-teal-300">
+                      {score.correct_count}/{score.total_cards} done
+                    </span>
+                  </li>
+                ))}
             </ul>
           )}
+
+          <p className="mt-3 text-xs text-slate-500">
+            Finished: {latestByPlayer.size} · Joined: {participants.length}
+          </p>
         </section>
 
         <div className="mt-10 flex flex-wrap gap-3">
