@@ -32,8 +32,7 @@ export default function Results() {
         return
       }
       setGame(g)
-      const list = await listAttemptsForGame(id)
-      setAttempts(list)
+      setAttempts(await listAttemptsForGame(id))
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load scores')
     } finally {
@@ -46,7 +45,7 @@ export default function Results() {
   }, [load])
 
   async function handleClear() {
-    if (!id || !confirm('Delete all scores for this game?')) return
+    if (!id || !confirm('Clear all scores for this game?')) return
     try {
       await clearAttemptsForGame(id)
       setAttempts([])
@@ -67,13 +66,14 @@ export default function Results() {
   async function handleStartClass() {
     if (!profile || !game) return
     if (game.status !== 'published') {
-      setError('Publish the game first, then start a live class.')
+      setError('Publish the game first.')
       return
     }
     setStarting(true)
     setError('')
     try {
-      const session = await startSession(profile.id, game.id)
+      const name = `${game.title} · ${new Date().toLocaleDateString()}`
+      const session = await startSession(profile.id, game.id, name)
       navigate(`/dashboard/session/${session.id}`)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not start class')
@@ -93,79 +93,55 @@ export default function Results() {
   return (
     <div className="min-h-screen bg-slate-50">
       <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-4">
+        <div className="mx-auto flex h-14 max-w-3xl items-center justify-between px-4">
           <Link to="/dashboard" className="text-sm font-medium text-teal-700 hover:underline">
-            ← Library
+            ← My games
           </Link>
           {game && (
-            <Link
-              to={`/dashboard/games/${game.id}`}
-              className="text-sm text-slate-500 hover:text-teal-700"
-            >
-              Edit game
+            <Link to={`/dashboard/games/${game.id}`} className="text-sm text-slate-500 hover:text-teal-700">
+              Edit
             </Link>
           )}
         </div>
       </header>
 
       <main className="mx-auto max-w-3xl px-4 py-8">
-        <h1 className="text-2xl font-bold text-slate-900">Scores (history)</h1>
-        <p className="mt-1 text-slate-500">
-          {game?.title}
-          {game && (
-            <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
-              tracking: {game.tracking_mode}
-            </span>
-          )}
-        </p>
+        <h1 className="text-2xl font-bold text-slate-900">Scores</h1>
+        <p className="mt-1 text-slate-500">{game?.title}</p>
 
-        {/* Live vs history explanation */}
-        <div className="mt-6 rounded-xl border border-teal-200 bg-teal-50 p-4 text-sm text-teal-900">
-          <p className="font-semibold">Looking for live class scores?</p>
-          <p className="mt-1">
-            This page is the <strong>history</strong> of all plays. Live scores appear only while a
-            class is running: from the library tap <strong>Start class</strong> → you get a join code
-            and a host screen that updates as students finish.
-          </p>
-          {game?.status === 'published' && (
-            <button
-              type="button"
-              disabled={starting}
-              onClick={() => void handleStartClass()}
-              className="mt-3 rounded-lg bg-teal-600 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-700 disabled:opacity-60"
-            >
-              {starting ? 'Starting…' : 'Start class (live scores)'}
-            </button>
-          )}
-        </div>
+        {game?.status === 'published' && (
+          <button
+            type="button"
+            disabled={starting}
+            onClick={() => void handleStartClass()}
+            className="mt-4 rounded-lg bg-teal-600 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-700 disabled:opacity-60"
+          >
+            {starting ? 'Starting…' : 'Start class'}
+          </button>
+        )}
 
         {error && (
           <div className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
         )}
 
         {game?.tracking_mode === 'none' && (
-          <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-            Tracking is off for this game. Set tracking to <strong>Anonymous</strong> or{' '}
-            <strong>Class</strong> in the game editor to collect scores.
+          <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            Tracking is off. Turn it on in the game editor to collect scores.
           </div>
         )}
 
         <div className="mt-6 flex items-center justify-between">
-          <p className="text-sm text-slate-500">{attempts.length} attempt(s)</p>
+          <p className="text-sm text-slate-500">{attempts.length} results</p>
           {attempts.length > 0 && (
-            <button
-              type="button"
-              onClick={() => void handleClear()}
-              className="text-sm text-red-600 hover:underline"
-            >
+            <button type="button" onClick={() => void handleClear()} className="text-sm text-red-600 hover:underline">
               Clear all
             </button>
           )}
         </div>
 
         {attempts.length === 0 ? (
-          <p className="mt-8 rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-500">
-            No history yet. After students finish (with tracking on), results appear here.
+          <p className="mt-8 rounded-xl border border-dashed border-slate-200 bg-white p-8 text-center text-sm text-slate-500">
+            No scores yet.
           </p>
         ) : (
           <div className="mt-4 overflow-hidden rounded-xl border border-slate-200 bg-white">
@@ -183,13 +159,9 @@ export default function Results() {
                   <tr key={a.id} className="border-b border-slate-50 last:border-0">
                     <td className="px-4 py-3 font-medium text-slate-800">
                       {a.player_label || 'Anonymous'}
-                      {a.session_id && (
-                        <span className="ml-2 text-xs font-normal text-teal-600">class</span>
-                      )}
                     </td>
                     <td className="px-4 py-3 text-slate-700">
                       {a.correct_count}/{a.total_cards}
-                      <span className="ml-1 text-xs text-slate-400">({a.score} pts)</span>
                     </td>
                     <td className="px-4 py-3 text-slate-500">
                       {new Date(a.created_at).toLocaleString()}
