@@ -1,15 +1,25 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useAuth } from '@/hooks/useAuth'
 import { getGame } from '@/services/games'
-import { clearAttemptsForGame, deleteAttempt, listAttemptsForGame, type PlayAttempt } from '@/services/scores'
+import { startSession } from '@/services/sessions'
+import {
+  clearAttemptsForGame,
+  deleteAttempt,
+  listAttemptsForGame,
+  type PlayAttempt,
+} from '@/services/scores'
 import type { Game } from '@/types'
 
 export default function Results() {
   const { id } = useParams<{ id: string }>()
+  const { profile } = useAuth()
+  const navigate = useNavigate()
   const [game, setGame] = useState<Game | null>(null)
   const [attempts, setAttempts] = useState<PlayAttempt[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [starting, setStarting] = useState(false)
 
   const load = useCallback(async () => {
     if (!id) return
@@ -54,6 +64,24 @@ export default function Results() {
     }
   }
 
+  async function handleStartClass() {
+    if (!profile || !game) return
+    if (game.status !== 'published') {
+      setError('Publish the game first, then start a live class.')
+      return
+    }
+    setStarting(true)
+    setError('')
+    try {
+      const session = await startSession(profile.id, game.id)
+      navigate(`/dashboard/session/${session.id}`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not start class')
+    } finally {
+      setStarting(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-50">
@@ -81,7 +109,7 @@ export default function Results() {
       </header>
 
       <main className="mx-auto max-w-3xl px-4 py-8">
-        <h1 className="text-2xl font-bold text-slate-900">Scores</h1>
+        <h1 className="text-2xl font-bold text-slate-900">Scores (history)</h1>
         <p className="mt-1 text-slate-500">
           {game?.title}
           {game && (
@@ -90,6 +118,26 @@ export default function Results() {
             </span>
           )}
         </p>
+
+        {/* Live vs history explanation */}
+        <div className="mt-6 rounded-xl border border-teal-200 bg-teal-50 p-4 text-sm text-teal-900">
+          <p className="font-semibold">Looking for live class scores?</p>
+          <p className="mt-1">
+            This page is the <strong>history</strong> of all plays. Live scores appear only while a
+            class is running: from the library tap <strong>Start class</strong> → you get a join code
+            and a host screen that updates as students finish.
+          </p>
+          {game?.status === 'published' && (
+            <button
+              type="button"
+              disabled={starting}
+              onClick={() => void handleStartClass()}
+              className="mt-3 rounded-lg bg-teal-600 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-700 disabled:opacity-60"
+            >
+              {starting ? 'Starting…' : 'Start class (live scores)'}
+            </button>
+          )}
+        </div>
 
         {error && (
           <div className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
@@ -117,7 +165,7 @@ export default function Results() {
 
         {attempts.length === 0 ? (
           <p className="mt-8 rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-500">
-            No scores yet. When students finish a game with tracking on, results appear here.
+            No history yet. After students finish (with tracking on), results appear here.
           </p>
         ) : (
           <div className="mt-4 overflow-hidden rounded-xl border border-slate-200 bg-white">
@@ -135,6 +183,9 @@ export default function Results() {
                   <tr key={a.id} className="border-b border-slate-50 last:border-0">
                     <td className="px-4 py-3 font-medium text-slate-800">
                       {a.player_label || 'Anonymous'}
+                      {a.session_id && (
+                        <span className="ml-2 text-xs font-normal text-teal-600">class</span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-slate-700">
                       {a.correct_count}/{a.total_cards}
