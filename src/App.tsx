@@ -8,6 +8,8 @@ import Recover from '@/pages/Recover'
 import Dashboard from '@/pages/Dashboard'
 import GameEditor from '@/pages/GameEditor'
 import Play from '@/pages/Play'
+import Join from '@/pages/Join'
+import SessionHost from '@/pages/SessionHost'
 
 export default function App() {
   return (
@@ -19,6 +21,7 @@ export default function App() {
           <Route path="/register" element={<Register />} />
           <Route path="/recover" element={<Recover />} />
           <Route path="/play/:slug" element={<Play />} />
+          <Route path="/join" element={<Join />} />
           <Route
             path="/dashboard"
             element={
@@ -40,6 +43,14 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <GameEditor />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard/session/:id"
+            element={
+              <ProtectedRoute>
+                <SessionHost />
               </ProtectedRoute>
             }
           />

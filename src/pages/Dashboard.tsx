@@ -2,21 +2,40 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import { signOut } from '@/services/auth'
-import { deleteGame, listMyGames, playUrl } from '@/services/games'
+import { deleteGame, listMyGamesWithCovers, playUrl } from '@/services/games'
+import { startSession } from '@/services/sessions'
 import type { Game } from '@/types'
+
+type GameCover = Game & { cover_url: string | null }
+
+const COVER_COLORS = [
+  'from-teal-700 to-teal-900',
+  'from-indigo-700 to-indigo-950',
+  'from-rose-700 to-rose-950',
+  'from-amber-600 to-amber-900',
+  'from-emerald-700 to-emerald-950',
+  'from-violet-700 to-violet-950',
+]
+
+function coverGradient(id: string): string {
+  let h = 0
+  for (let i = 0; i < id.length; i++) h = (h + id.charCodeAt(i) * (i + 1)) % COVER_COLORS.length
+  return COVER_COLORS[h]
+}
 
 export default function Dashboard() {
   const { profile, loading, profileLoading } = useAuth()
   const navigate = useNavigate()
-  const [games, setGames] = useState<Game[]>([])
+  const [games, setGames] = useState<GameCover[]>([])
   const [gamesLoading, setGamesLoading] = useState(true)
   const [error, setError] = useState('')
+  const [startingId, setStartingId] = useState<string | null>(null)
 
   const loadGames = useCallback(async () => {
     setGamesLoading(true)
     setError('')
     try {
-      const list = await listMyGames()
+      const list = await listMyGamesWithCovers()
       setGames(list)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not load games')
@@ -46,32 +65,56 @@ export default function Dashboard() {
     }
   }
 
+  async function handleStartClass(game: Game) {
+    if (!profile) return
+    if (game.status !== 'published') {
+      setError('Publish the game first, then start a class session.')
+      return
+    }
+    setStartingId(game.id)
+    setError('')
+    try {
+      const session = await startSession(profile.id, game.id)
+      navigate(`/dashboard/session/${session.id}`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not start session')
+    } finally {
+      setStartingId(null)
+    }
+  }
+
   if (loading || profileLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-teal-600 border-t-transparent" />
+      <div className="flex min-h-screen items-center justify-center bg-slate-950">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-teal-400 border-t-transparent" />
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4">
+    <div className="min-h-screen bg-slate-950 text-white">
+      <header className="border-b border-white/10 bg-slate-950/90 backdrop-blur">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
           <div className="flex items-center gap-3">
-            <span className="text-xl font-bold text-teal-700">VocaProna</span>
-            <span className="rounded-full bg-teal-50 px-2 py-0.5 text-xs font-medium text-teal-700">
-              Teacher
+            <span className="text-xl font-bold text-teal-400">VocaProna</span>
+            <span className="rounded-full bg-white/10 px-2 py-0.5 text-xs font-medium text-slate-300">
+              My library
             </span>
           </div>
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-slate-600">
-              {profile?.display_name || profile?.username || 'Teacher'}
+          <div className="flex items-center gap-3">
+            <Link
+              to="/join"
+              className="hidden text-sm text-slate-400 hover:text-white sm:inline"
+            >
+              Student join
+            </Link>
+            <span className="text-sm text-slate-400">
+              {profile?.display_name || profile?.username}
             </span>
             <button
               type="button"
               onClick={() => void handleLogout()}
-              className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              className="rounded-lg border border-white/15 px-3 py-1.5 text-sm text-slate-300 hover:bg-white/5"
             >
               Log out
             </button>
@@ -79,118 +122,141 @@ export default function Dashboard() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-5xl px-4 py-8">
-        <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
+      <main className="mx-auto max-w-6xl px-4 py-8">
+        <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">Dashboard</h1>
-            <p className="mt-1 text-slate-500">
-              Create and manage educational speech games for your students.
+            <h1 className="text-3xl font-bold tracking-tight">Your games</h1>
+            <p className="mt-1 text-slate-400">
+              Browse like a library — cover + title. Open, edit, or start a class.
             </p>
           </div>
           <Link
             to="/dashboard/games/new"
-            className="rounded-lg bg-teal-600 px-5 py-2.5 font-medium text-white hover:bg-teal-700"
+            className="rounded-lg bg-teal-500 px-5 py-2.5 font-semibold text-slate-950 hover:bg-teal-400"
           >
-            Create New Game
+            + New game
           </Link>
         </div>
 
         {error && (
-          <div className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
+          <div className="mb-6 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+            {error}
+          </div>
         )}
 
         {gamesLoading ? (
-          <div className="flex justify-center py-16">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-teal-600 border-t-transparent" />
+          <div className="flex justify-center py-24">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-teal-400 border-t-transparent" />
           </div>
         ) : games.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center">
-            <p className="text-lg font-medium text-slate-700">No games yet</p>
-            <p className="mt-2 text-sm text-slate-500">
-              Create your first game, add activity cards, then publish a share link for students.
+          <div className="rounded-2xl border border-dashed border-white/15 bg-white/5 p-16 text-center">
+            <p className="text-xl font-medium text-slate-200">No games in your library yet</p>
+            <p className="mt-2 text-sm text-slate-400">
+              Create a game, add cards with pictures, publish — covers show up here.
             </p>
             <Link
               to="/dashboard/games/new"
-              className="mt-6 inline-block rounded-lg bg-teal-600 px-5 py-2.5 font-medium text-white hover:bg-teal-700"
+              className="mt-8 inline-block rounded-lg bg-teal-500 px-5 py-2.5 font-semibold text-slate-950 hover:bg-teal-400"
             >
-              Create New Game
+              Create your first game
             </Link>
           </div>
         ) : (
-          <ul className="space-y-3">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
             {games.map((game) => (
-              <li
+              <article
                 key={game.id}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4"
+                className="group relative flex flex-col overflow-hidden rounded-xl bg-slate-900 shadow-lg ring-1 ring-white/10 transition hover:-translate-y-1 hover:ring-teal-400/50"
               >
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h2 className="truncate font-semibold text-slate-900">{game.title}</h2>
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                        game.status === 'published'
-                          ? 'bg-teal-50 text-teal-700'
-                          : 'bg-slate-100 text-slate-600'
-                      }`}
+                {/* Cover — Netflix-style poster */}
+                <Link to={`/dashboard/games/${game.id}`} className="relative block aspect-[2/3] overflow-hidden">
+                  {game.cover_url ? (
+                    <img
+                      src={game.cover_url}
+                      alt=""
+                      className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                    />
+                  ) : (
+                    <div
+                      className={`flex h-full w-full flex-col items-center justify-center bg-gradient-to-br ${coverGradient(game.id)} p-4`}
                     >
-                      {game.status}
-                    </span>
-                  </div>
-                  <p className="mt-0.5 text-sm text-slate-500">
-                    {game.subject}
-                    {game.custom_subject ? ` · ${game.custom_subject}` : ''}
-                    {' · '}
-                    {new Date(game.updated_at).toLocaleDateString()}
-                  </p>
-                  {game.status === 'published' && game.share_slug && (
-                    <p className="mt-1 truncate text-xs text-teal-700">
-                      {playUrl(game.share_slug)}
-                    </p>
+                      <span className="text-4xl font-black text-white/90">
+                        {game.title.slice(0, 1).toUpperCase()}
+                      </span>
+                      <span className="mt-2 line-clamp-3 text-center text-sm font-semibold text-white/80">
+                        {game.title}
+                      </span>
+                    </div>
                   )}
-                </div>
-                <div className="flex shrink-0 gap-2">
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-90" />
+                  <div className="absolute bottom-0 left-0 right-0 p-3">
+                    <h2 className="line-clamp-2 text-sm font-bold leading-snug text-white drop-shadow">
+                      {game.title}
+                    </h2>
+                    <p className="mt-0.5 text-xs text-white/70">{game.subject}</p>
+                  </div>
+                  <span
+                    className={`absolute right-2 top-2 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+                      game.status === 'published'
+                        ? 'bg-teal-500 text-slate-950'
+                        : 'bg-black/60 text-slate-200'
+                    }`}
+                  >
+                    {game.status === 'published' ? 'Live' : 'Draft'}
+                  </span>
+                </Link>
+
+                {/* Actions under cover */}
+                <div className="flex flex-col gap-1.5 border-t border-white/5 p-2">
                   <Link
                     to={`/dashboard/games/${game.id}`}
-                    className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                    className="rounded-md bg-white/10 py-1.5 text-center text-xs font-medium text-white hover:bg-white/15"
                   >
                     Edit
                   </Link>
-                  {game.status === 'published' && game.share_slug && (
-                    <a
-                      href={playUrl(game.share_slug)}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="rounded-lg border border-teal-600 px-3 py-1.5 text-sm font-medium text-teal-700 hover:bg-teal-50"
-                    >
-                      Open play
-                    </a>
+                  {game.status === 'published' && (
+                    <>
+                      <button
+                        type="button"
+                        disabled={startingId === game.id}
+                        onClick={() => void handleStartClass(game)}
+                        className="rounded-md bg-teal-500/90 py-1.5 text-xs font-semibold text-slate-950 hover:bg-teal-400 disabled:opacity-60"
+                      >
+                        {startingId === game.id ? 'Starting…' : 'Start class'}
+                      </button>
+                      {game.share_slug && (
+                        <a
+                          href={playUrl(game.share_slug)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="rounded-md py-1 text-center text-xs text-slate-400 hover:text-teal-300"
+                        >
+                          Open play link
+                        </a>
+                      )}
+                    </>
                   )}
                   <button
                     type="button"
                     onClick={() => void handleDelete(game)}
-                    className="rounded-lg px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50"
+                    className="rounded-md py-1 text-xs text-red-400/80 hover:bg-red-500/10 hover:text-red-300"
                   >
                     Delete
                   </button>
                 </div>
-              </li>
+              </article>
             ))}
-          </ul>
-        )}
 
-        <div className="mt-10 rounded-xl border border-slate-200 bg-white p-5">
-          <h2 className="font-semibold text-slate-800">Account</h2>
-          <dl className="mt-3 space-y-1 text-sm">
-            <div className="flex justify-between gap-4">
-              <dt className="text-slate-500">Username</dt>
-              <dd className="font-medium text-slate-800">{profile?.username}</dd>
-            </div>
-            <div className="flex justify-between gap-4">
-              <dt className="text-slate-500">Role</dt>
-              <dd className="font-medium text-slate-800">{profile?.role}</dd>
-            </div>
-          </dl>
-        </div>
+            {/* Add tile */}
+            <Link
+              to="/dashboard/games/new"
+              className="flex aspect-[2/3] flex-col items-center justify-center rounded-xl border-2 border-dashed border-white/15 text-slate-500 transition hover:border-teal-400/50 hover:text-teal-300"
+            >
+              <span className="text-3xl">+</span>
+              <span className="mt-2 text-sm font-medium">New game</span>
+            </Link>
+          </div>
+        )}
       </main>
     </div>
   )
