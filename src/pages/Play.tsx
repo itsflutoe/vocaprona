@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { getGameBySlug } from '@/services/games'
-import { submitAttempt } from '@/services/scores'
+import {
+  clearPlaySessionContext,
+  loadPlaySessionContext,
+  submitAttempt,
+} from '@/services/scores'
 import {
   checkSpokenAnswer,
   formatMaskedWord,
@@ -33,6 +37,7 @@ export default function Play() {
   const [showHint, setShowHint] = useState(false)
   const [showType, setShowType] = useState(false)
   const [typed, setTyped] = useState('')
+  const [sessionId, setSessionId] = useState<string | null>(null)
 
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null)
   const advancingRef = useRef(false)
@@ -42,6 +47,14 @@ export default function Play() {
   const cards = game?.activity_cards || []
   const card: ActivityCard | undefined = cards[index]
   const tracking = game?.tracking_mode || 'none'
+
+  useEffect(() => {
+    const ctx = loadPlaySessionContext()
+    if (ctx) {
+      setSessionId(ctx.sessionId)
+      if (ctx.playerLabel) setPlayerName(ctx.playerLabel)
+    }
+  }, [])
 
   useEffect(() => {
     if (!slug) return
@@ -115,6 +128,7 @@ export default function Play() {
           : playerName.trim() || 'Anonymous'
       await submitAttempt({
         gameId: game.id,
+        sessionId,
         playerLabel: label,
         score: finalCorrect * 2,
         totalCards: cards.length,
@@ -122,8 +136,9 @@ export default function Play() {
         durationSeconds: duration,
       })
       setScoreSaved(true)
+      if (sessionId) clearPlaySessionContext()
     },
-    [game, tracking, scoreSaved, playerName, cards.length]
+    [game, tracking, scoreSaved, playerName, cards.length, sessionId]
   )
 
   const onCorrect = useCallback(() => {
@@ -386,21 +401,26 @@ export default function Play() {
             <p className="mt-4 text-slate-600">
               {cards.length} {cards.length === 1 ? 'card' : 'cards'} · Speak or type!
             </p>
+            {sessionId && (
+              <p className="mt-2 text-xs font-medium text-teal-700">Joined via class code — score goes to your teacher</p>
+            )}
             {!speechOk && (
               <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
                 Mic needs <strong>Chrome</strong> or <strong>Edge</strong>. You can still type answers.
               </p>
             )}
-            {(tracking === 'class' || tracking === 'anonymous') && (
+            {(tracking === 'class' || tracking === 'anonymous' || sessionId) && (
               <div className="mt-6 text-left">
                 <label className="mb-1 block text-sm font-medium text-slate-700">
-                  {tracking === 'class' ? 'Your name (required for score)' : 'Your name (optional)'}
+                  {tracking === 'class' || sessionId
+                    ? 'Your name (required for score)'
+                    : 'Your name (optional)'}
                 </label>
                 <input
                   value={playerName}
                   onChange={(e) => setPlayerName(e.target.value)}
                   className="w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
-                  placeholder={tracking === 'class' ? 'e.g. Mia' : 'Anonymous'}
+                  placeholder="e.g. Mia"
                   maxLength={40}
                 />
               </div>
@@ -460,7 +480,6 @@ export default function Play() {
               </button>
             )}
 
-            {/* Hint — uses prompt / hints from editor */}
             {hintText && (
               <div className="mt-4">
                 {!showHint ? (
