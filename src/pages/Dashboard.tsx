@@ -3,8 +3,12 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import { signOut } from '@/services/auth'
 import { deleteGame, listMyGamesWithCovers, playUrl } from '@/services/games'
-import { startSession } from '@/services/sessions'
-import type { Game } from '@/types'
+import {
+  getMyActiveSession,
+  sessionDisplayName,
+  startSession,
+} from '@/services/sessions'
+import type { Game, SessionWithGame } from '@/types'
 
 type GameCover = Game & { cover_url: string | null }
 
@@ -30,6 +34,7 @@ export default function Dashboard() {
   const [gamesLoading, setGamesLoading] = useState(true)
   const [error, setError] = useState('')
   const [startingId, setStartingId] = useState<string | null>(null)
+  const [activeSession, setActiveSession] = useState<SessionWithGame | null>(null)
 
   const loadGames = useCallback(async () => {
     setGamesLoading(true)
@@ -44,11 +49,22 @@ export default function Dashboard() {
     }
   }, [])
 
+  const loadActive = useCallback(async () => {
+    if (!profile) return
+    try {
+      const s = await getMyActiveSession(profile.id)
+      setActiveSession(s)
+    } catch {
+      setActiveSession(null)
+    }
+  }, [profile])
+
   useEffect(() => {
     if (!loading && !profileLoading && profile) {
       void loadGames()
+      void loadActive()
     }
-  }, [loading, profileLoading, profile, loadGames])
+  }, [loading, profileLoading, profile, loadGames, loadActive])
 
   async function handleLogout() {
     await signOut()
@@ -71,10 +87,23 @@ export default function Dashboard() {
       setError('Publish the game first, then start a class session.')
       return
     }
+    if (activeSession) {
+      const go = confirm(
+        `You already have a live class open (${sessionDisplayName(activeSession)}).\n\nOK = go back to that class\nCancel = stay here`
+      )
+      if (go) {
+        navigate(`/dashboard/session/${activeSession.id}`)
+      }
+      return
+    }
+    const defaultName = `${game.title} · ${new Date().toLocaleDateString()}`
+    const name = window.prompt('Name this class (optional)', defaultName)
+    if (name === null) return // cancelled
+
     setStartingId(game.id)
     setError('')
     try {
-      const session = await startSession(profile.id, game.id)
+      const session = await startSession(profile.id, game.id, name.trim() || defaultName)
       navigate(`/dashboard/session/${session.id}`)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not start session')
@@ -102,6 +131,9 @@ export default function Dashboard() {
             </span>
           </div>
           <div className="flex items-center gap-3">
+            <Link to="/dashboard/classes" className="text-sm text-slate-400 hover:text-white">
+              My classes
+            </Link>
             <Link to="/join" className="hidden text-sm text-slate-400 hover:text-white sm:inline">
               Student join
             </Link>
@@ -120,12 +152,34 @@ export default function Dashboard() {
       </header>
 
       <main className="mx-auto max-w-6xl px-4 py-8">
+        {activeSession && (
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-400/40 bg-amber-500/15 px-4 py-3">
+            <div>
+              <p className="text-sm font-semibold text-amber-100">Live class still open</p>
+              <p className="text-xs text-amber-200/90">
+                {sessionDisplayName(activeSession)}
+                {activeSession.join_code ? ` · code ${activeSession.join_code}` : ''}
+              </p>
+            </div>
+            <Link
+              to={`/dashboard/session/${activeSession.id}`}
+              className="rounded-lg bg-amber-400 px-4 py-2 text-sm font-bold text-slate-950 hover:bg-amber-300"
+            >
+              Resume class
+            </Link>
+          </div>
+        )}
+
         <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Your games</h1>
             <p className="mt-1 text-slate-400">
               <strong className="text-slate-300">Start class (live)</strong> = join code + live
-              scores. <strong className="text-slate-300">Score history</strong> = all past plays.
+              scores. Leave anytime — use <strong className="text-slate-300">Resume</strong> or{' '}
+              <Link to="/dashboard/classes" className="text-teal-400 hover:underline">
+                My classes
+              </Link>
+              .
             </p>
           </div>
           <Link
@@ -149,9 +203,6 @@ export default function Dashboard() {
         ) : games.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-white/15 bg-white/5 p-16 text-center">
             <p className="text-xl font-medium text-slate-200">No games in your library yet</p>
-            <p className="mt-2 text-sm text-slate-400">
-              Create a game, paste a cover image URL, add cards, publish.
-            </p>
             <Link
               to="/dashboard/games/new"
               className="mt-8 inline-block rounded-lg bg-teal-500 px-5 py-2.5 font-semibold text-slate-950 hover:bg-teal-400"

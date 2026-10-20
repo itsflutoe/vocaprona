@@ -11,6 +11,7 @@ import Play from '@/pages/Play'
 import Join from '@/pages/Join'
 import SessionHost from '@/pages/SessionHost'
 import Results from '@/pages/Results'
+import Classes from '@/pages/Classes'
 
 export default function App() {
   return (
@@ -28,6 +29,14 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <Dashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard/classes"
+            element={
+              <ProtectedRoute>
+                <Classes />
               </ProtectedRoute>
             }
           />
