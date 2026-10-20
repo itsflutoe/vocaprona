@@ -124,7 +124,8 @@ export default function Dashboard() {
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Your games</h1>
             <p className="mt-1 text-slate-400">
-              Square covers + title — set a cover on each game for the best look.
+              <strong className="text-slate-300">Start class (live)</strong> = join code + live
+              scores. <strong className="text-slate-300">Score history</strong> = all past plays.
             </p>
           </div>
           <Link
@@ -216,7 +217,7 @@ export default function Dashboard() {
                     to={`/dashboard/games/${game.id}/scores`}
                     className="rounded-md bg-white/5 py-1.5 text-center text-xs font-medium text-slate-300 hover:bg-white/10 hover:text-white"
                   >
-                    Scores
+                    Score history
                   </Link>
                   {game.status === 'published' && (
                     <>
@@ -226,7 +227,7 @@ export default function Dashboard() {
                         onClick={() => void handleStartClass(game)}
                         className="rounded-md bg-teal-500/90 py-1.5 text-xs font-semibold text-slate-950 hover:bg-teal-400 disabled:opacity-60"
                       >
-                        {startingId === game.id ? 'Starting…' : 'Start class'}
+                        {startingId === game.id ? 'Starting…' : 'Start class (live)'}
                       </button>
                       {game.share_slug && (
                         <a
