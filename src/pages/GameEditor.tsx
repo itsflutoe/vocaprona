@@ -42,6 +42,7 @@ export default function GameEditor() {
   const [customSubject, setCustomSubject] = useState('')
   const [coverUrl, setCoverUrl] = useState('')
   const [trackingMode, setTrackingMode] = useState<TrackingMode>('class')
+  const [listedInLibrary, setListedInLibrary] = useState(false)
   const [loading, setLoading] = useState(!isNew)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -72,6 +73,7 @@ export default function GameEditor() {
       setCustomSubject(g.custom_subject || '')
       setCoverUrl(g.thumbnail_url || '')
       setTrackingMode((g.tracking_mode as TrackingMode) || 'class')
+      setListedInLibrary(!!g.listed_in_library)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load game')
     } finally {
@@ -125,6 +127,7 @@ export default function GameEditor() {
         custom_subject: subject === 'Other' ? customSubject.trim() || null : null,
         thumbnail_url: coverUrl.trim() || null,
         tracking_mode: trackingMode,
+        listed_in_library: listedInLibrary,
       })
       setGame((prev) => (prev ? { ...prev, ...updated } : prev))
       setMessage('Saved.')
@@ -227,6 +230,10 @@ export default function GameEditor() {
         await updateGame(id, { thumbnail_url: coverUrl.trim() })
       }
       const updated = await publishGame(id)
+      if (listedInLibrary) {
+        await updateGame(id, { listed_in_library: true })
+        updated.listed_in_library = true
+      }
       setGame((prev) => (prev ? { ...prev, ...updated } : prev))
       if (updated.thumbnail_url) setCoverUrl(updated.thumbnail_url)
       setMessage('Published! Share link is ready.')
@@ -243,6 +250,7 @@ export default function GameEditor() {
     setError('')
     try {
       const updated = await unpublishGame(id)
+      setListedInLibrary(false)
       setGame((prev) => (prev ? { ...prev, ...updated } : prev))
       setMessage('Unpublished (back to draft).')
     } catch (err) {
@@ -347,7 +355,6 @@ export default function GameEditor() {
               className="w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
               placeholder="https://… paste image URL for the library poster"
             />
-            <p className="mt-1 text-xs text-slate-500">Shown on your dashboard. Use a 1:1 image if you can.</p>
             {coverUrl.trim() && (
               <div className="mt-3 aspect-square w-36 overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
                 <img
@@ -373,8 +380,23 @@ export default function GameEditor() {
               <option value="anonymous">Anonymous — save scores, name optional</option>
               <option value="class">Class — require student name, then save scores</option>
             </select>
-            <p className="mt-1 text-xs text-slate-500">View results from the library → Scores on each game.</p>
           </div>
+
+          <label className="flex items-start gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3">
+            <input
+              type="checkbox"
+              checked={listedInLibrary}
+              onChange={(e) => setListedInLibrary(e.target.checked)}
+              className="mt-1 h-4 w-4 rounded border-slate-300 text-teal-600"
+            />
+            <span>
+              <span className="block text-sm font-medium text-slate-800">List in teacher Library</span>
+              <span className="mt-0.5 block text-xs text-slate-500">
+                Other teachers can browse Shared Library and copy this game. Publish first, then
+                enable and Save details.
+              </span>
+            </span>
+          </label>
 
           <button
             type="submit"
@@ -401,7 +423,7 @@ export default function GameEditor() {
 
               {cards.length === 0 && !showCardForm && (
                 <p className="rounded-xl border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500">
-                  No cards yet. Tap <strong>+ Add card</strong>, pick a type, type a word — done.
+                  No cards yet. Tap <strong>+ Add card</strong>.
                 </p>
               )}
 
@@ -464,12 +486,11 @@ export default function GameEditor() {
                   </div>
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-slate-700">2. Word or sentence to practice</label>
+                  <label className="mb-1 block text-sm font-medium text-slate-700">2. Word or sentence</label>
                   <input
                     value={cardWord}
                     onChange={(e) => setCardWord(e.target.value)}
                     className="w-full rounded-lg border border-slate-300 px-3 py-3 text-lg focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
-                    placeholder={cardType === 'sentence' ? 'e.g. The cat sat on the mat' : 'e.g. elephant'}
                     required
                     autoFocus
                   />
@@ -480,23 +501,16 @@ export default function GameEditor() {
                     value={cardPrompt}
                     onChange={(e) => setCardPrompt(e.target.value)}
                     className="w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
-                    placeholder="e.g. A large animal with a trunk"
                   />
-                  <p className="mt-1 text-xs text-slate-500">Shown when the student taps the Hint button while playing.</p>
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-slate-700">Card image URL (square 1:1 recommended)</label>
+                  <label className="mb-1 block text-sm font-medium text-slate-700">Card image URL</label>
                   <input
                     value={cardImage}
                     onChange={(e) => setCardImage(e.target.value)}
                     className="w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
                     placeholder="https://…"
                   />
-                  {cardImage.trim() && (
-                    <div className="mt-3 aspect-square w-32 overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
-                      <img src={cardImage.trim()} alt="Card preview" className="h-full w-full object-cover" />
-                    </div>
-                  )}
                 </div>
                 <div>
                   <label className="mb-1 block text-sm font-medium text-slate-700">Also accept (optional)</label>
@@ -504,11 +518,10 @@ export default function GameEditor() {
                     value={cardAliases}
                     onChange={(e) => setCardAliases(e.target.value)}
                     className="w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
-                    placeholder="e.g. cacti, cactus plant"
+                    placeholder="e.g. cacti"
                   />
-                  <p className="mt-1 text-xs text-slate-500">Comma-separated. Plurals are added automatically.</p>
                 </div>
-                <div className="flex gap-3 pt-1">
+                <div className="flex gap-3">
                   <button
                     type="submit"
                     disabled={saving}
