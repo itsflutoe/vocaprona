@@ -15,6 +15,7 @@ import {
   speakText,
   type SpeechRecognitionLike,
 } from '@/lib/speech'
+import { playComplete, playCorrect, playWrong } from '@/lib/sounds'
 import type { ActivityCard, GameWithCards } from '@/types'
 
 export default function Play() {
@@ -149,11 +150,13 @@ export default function Play() {
     setFeedback('✅ Correct!')
     setFeedbackOk(true)
     setShowType(false)
+    playCorrect()
     setTimeout(() => {
       setIndex((i) => {
         const next = i + 1
         if (next >= cards.length) {
           void saveScore(correctRef.current)
+          playComplete()
           setScreen('complete')
           return i
         }
@@ -179,6 +182,7 @@ export default function Play() {
       } else {
         setFeedback('❌ Try again — speak clearly')
         setFeedbackOk(false)
+        playWrong()
         setTimeout(() => {
           setHeard('—')
           setFeedback('')
@@ -204,6 +208,7 @@ export default function Play() {
     } else {
       setFeedback('❌ Not quite — try again')
       setFeedbackOk(false)
+      playWrong()
     }
   }
 
@@ -402,7 +407,9 @@ export default function Play() {
               {cards.length} {cards.length === 1 ? 'card' : 'cards'} · Speak or type!
             </p>
             {sessionId && (
-              <p className="mt-2 text-xs font-medium text-teal-700">Joined via class code — score goes to your teacher</p>
+              <p className="mt-2 text-xs font-medium text-teal-700">
+                Joined via class code — score goes to your teacher
+              </p>
             )}
             {!speechOk && (
               <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
@@ -598,12 +605,18 @@ export default function Play() {
                 </li>
               ))}
             </ul>
+            <Link
+              to="/"
+              className="mt-8 block w-full rounded-2xl bg-teal-600 py-4 text-center text-lg font-bold text-white hover:bg-teal-700"
+            >
+              Back to home
+            </Link>
             <button
               type="button"
               onClick={handleRestart}
-              className="mt-8 w-full rounded-2xl bg-teal-600 py-4 text-lg font-bold text-white hover:bg-teal-700"
+              className="mt-3 w-full rounded-2xl border-2 border-teal-600 py-3 text-base font-semibold text-teal-700 hover:bg-teal-50"
             >
-              PLAY AGAIN
+              Play again
             </button>
           </div>
         )}
