@@ -102,10 +102,7 @@ export default function Dashboard() {
             </span>
           </div>
           <div className="flex items-center gap-3">
-            <Link
-              to="/join"
-              className="hidden text-sm text-slate-400 hover:text-white sm:inline"
-            >
+            <Link to="/join" className="hidden text-sm text-slate-400 hover:text-white sm:inline">
               Student join
             </Link>
             <span className="text-sm text-slate-400">
@@ -127,7 +124,7 @@ export default function Dashboard() {
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Your games</h1>
             <p className="mt-1 text-slate-400">
-              Browse like a library — cover + title. Open, edit, or start a class.
+              Square covers + title — set a cover on each game for the best look.
             </p>
           </div>
           <Link
@@ -152,7 +149,7 @@ export default function Dashboard() {
           <div className="rounded-2xl border border-dashed border-white/15 bg-white/5 p-16 text-center">
             <p className="text-xl font-medium text-slate-200">No games in your library yet</p>
             <p className="mt-2 text-sm text-slate-400">
-              Create a game, add cards with pictures, publish — covers show up here.
+              Create a game, paste a cover image URL, add cards, publish.
             </p>
             <Link
               to="/dashboard/games/new"
@@ -168,8 +165,11 @@ export default function Dashboard() {
                 key={game.id}
                 className="group relative flex flex-col overflow-hidden rounded-xl bg-slate-900 shadow-lg ring-1 ring-white/10 transition hover:-translate-y-1 hover:ring-teal-400/50"
               >
-                {/* Cover — Netflix-style poster */}
-                <Link to={`/dashboard/games/${game.id}`} className="relative block aspect-[2/3] overflow-hidden">
+                {/* Cover — 1:1 square */}
+                <Link
+                  to={`/dashboard/games/${game.id}`}
+                  className="relative block aspect-square overflow-hidden"
+                >
                   {game.cover_url ? (
                     <img
                       src={game.cover_url}
@@ -188,7 +188,7 @@ export default function Dashboard() {
                       </span>
                     </div>
                   )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-90" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
                   <div className="absolute bottom-0 left-0 right-0 p-3">
                     <h2 className="line-clamp-2 text-sm font-bold leading-snug text-white drop-shadow">
                       {game.title}
@@ -206,7 +206,6 @@ export default function Dashboard() {
                   </span>
                 </Link>
 
-                {/* Actions under cover */}
                 <div className="flex flex-col gap-1.5 border-t border-white/5 p-2">
                   <Link
                     to={`/dashboard/games/${game.id}`}
@@ -247,10 +246,9 @@ export default function Dashboard() {
               </article>
             ))}
 
-            {/* Add tile */}
             <Link
               to="/dashboard/games/new"
-              className="flex aspect-[2/3] flex-col items-center justify-center rounded-xl border-2 border-dashed border-white/15 text-slate-500 transition hover:border-teal-400/50 hover:text-teal-300"
+              className="flex aspect-square flex-col items-center justify-center rounded-xl border-2 border-dashed border-white/15 text-slate-500 transition hover:border-teal-400/50 hover:text-teal-300"
             >
               <span className="text-3xl">+</span>
               <span className="mt-2 text-sm font-medium">New game</span>
