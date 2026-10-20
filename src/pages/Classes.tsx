@@ -7,7 +7,7 @@ import {
   listMySessions,
   sessionDisplayName,
 } from '@/services/sessions'
-import { AppHeader, headerBtnGhost, headerLink } from '@/components/AppHeader'
+import { AppHeader, headerLink } from '@/components/AppHeader'
 import type { SessionWithGame } from '@/types'
 
 export default function Classes() {
