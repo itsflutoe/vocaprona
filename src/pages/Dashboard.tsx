@@ -2,7 +2,12 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import { signOut } from '@/services/auth'
-import { deleteGame, listMyGamesWithCovers, playUrl } from '@/services/games'
+import {
+  deleteGame,
+  groupGamesBySubject,
+  listMyGamesWithCovers,
+  playUrl,
+} from '@/services/games'
 import {
   getMyActiveSession,
   sessionDisplayName,
@@ -98,7 +103,7 @@ export default function Dashboard() {
     }
     const defaultName = `${game.title} · ${new Date().toLocaleDateString()}`
     const name = window.prompt('Name this class (optional)', defaultName)
-    if (name === null) return // cancelled
+    if (name === null) return
 
     setStartingId(game.id)
     setError('')
@@ -111,6 +116,8 @@ export default function Dashboard() {
       setStartingId(null)
     }
   }
+
+  const subjectGroups = groupGamesBySubject(games)
 
   if (loading || profileLoading) {
     return (
@@ -131,6 +138,9 @@ export default function Dashboard() {
             </span>
           </div>
           <div className="flex items-center gap-3">
+            <Link to="/library" className="text-sm text-slate-400 hover:text-white">
+              Shared Library
+            </Link>
             <Link to="/dashboard/classes" className="text-sm text-slate-400 hover:text-white">
               My classes
             </Link>
@@ -174,10 +184,9 @@ export default function Dashboard() {
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Your games</h1>
             <p className="mt-1 text-slate-400">
-              <strong className="text-slate-300">Start class (live)</strong> = join code + live
-              scores. Leave anytime — use <strong className="text-slate-300">Resume</strong> or{' '}
-              <Link to="/dashboard/classes" className="text-teal-400 hover:underline">
-                My classes
+              Only games you own, grouped by subject. Browse community games in{' '}
+              <Link to="/library" className="text-teal-400 hover:underline">
+                Shared Library
               </Link>
               .
             </p>
@@ -209,107 +218,116 @@ export default function Dashboard() {
             >
               Create your first game
             </Link>
+            <p className="mt-4 text-sm text-slate-500">
+              Or{' '}
+              <Link to="/library" className="text-teal-400 hover:underline">
+                copy one from Shared Library
+              </Link>
+            </p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-            {games.map((game) => (
-              <article
-                key={game.id}
-                className="group relative flex flex-col overflow-hidden rounded-xl bg-slate-900 shadow-lg ring-1 ring-white/10 transition hover:-translate-y-1 hover:ring-teal-400/50"
-              >
-                <Link
-                  to={`/dashboard/games/${game.id}`}
-                  className="relative block aspect-square overflow-hidden"
-                >
-                  {game.cover_url ? (
-                    <img
-                      src={game.cover_url}
-                      alt=""
-                      className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
-                    />
-                  ) : (
-                    <div
-                      className={`flex h-full w-full flex-col items-center justify-center bg-gradient-to-br ${coverGradient(game.id)} p-4`}
+          <div className="space-y-12">
+            {subjectGroups.map(({ subject, games: list }) => (
+              <section key={subject}>
+                <h2 className="mb-4 text-lg font-semibold text-teal-300">{subject}</h2>
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+                  {list.map((game) => (
+                    <article
+                      key={game.id}
+                      className="group relative flex flex-col overflow-hidden rounded-xl bg-slate-900 shadow-lg ring-1 ring-white/10 transition hover:-translate-y-1 hover:ring-teal-400/50"
                     >
-                      <span className="text-4xl font-black text-white/90">
-                        {game.title.slice(0, 1).toUpperCase()}
-                      </span>
-                      <span className="mt-2 line-clamp-3 text-center text-sm font-semibold text-white/80">
-                        {game.title}
-                      </span>
-                    </div>
-                  )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
-                  <div className="absolute bottom-0 left-0 right-0 p-3">
-                    <h2 className="line-clamp-2 text-sm font-bold leading-snug text-white drop-shadow">
-                      {game.title}
-                    </h2>
-                    <p className="mt-0.5 text-xs text-white/70">{game.subject}</p>
-                  </div>
-                  <span
-                    className={`absolute right-2 top-2 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
-                      game.status === 'published'
-                        ? 'bg-teal-500 text-slate-950'
-                        : 'bg-black/60 text-slate-200'
-                    }`}
-                  >
-                    {game.status === 'published' ? 'Live' : 'Draft'}
-                  </span>
-                </Link>
-
-                <div className="flex flex-col gap-1.5 border-t border-white/5 p-2">
-                  <Link
-                    to={`/dashboard/games/${game.id}`}
-                    className="rounded-md bg-white/10 py-1.5 text-center text-xs font-medium text-white hover:bg-white/15"
-                  >
-                    Edit
-                  </Link>
-                  <Link
-                    to={`/dashboard/games/${game.id}/scores`}
-                    className="rounded-md bg-white/5 py-1.5 text-center text-xs font-medium text-slate-300 hover:bg-white/10 hover:text-white"
-                  >
-                    Score history
-                  </Link>
-                  {game.status === 'published' && (
-                    <>
-                      <button
-                        type="button"
-                        disabled={startingId === game.id}
-                        onClick={() => void handleStartClass(game)}
-                        className="rounded-md bg-teal-500/90 py-1.5 text-xs font-semibold text-slate-950 hover:bg-teal-400 disabled:opacity-60"
+                      <Link
+                        to={`/dashboard/games/${game.id}`}
+                        className="relative block aspect-square overflow-hidden"
                       >
-                        {startingId === game.id ? 'Starting…' : 'Start class (live)'}
-                      </button>
-                      {game.share_slug && (
-                        <a
-                          href={playUrl(game.share_slug)}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="rounded-md py-1 text-center text-xs text-slate-400 hover:text-teal-300"
+                        {game.cover_url ? (
+                          <img
+                            src={game.cover_url}
+                            alt=""
+                            className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                          />
+                        ) : (
+                          <div
+                            className={`flex h-full w-full flex-col items-center justify-center bg-gradient-to-br ${coverGradient(game.id)} p-4`}
+                          >
+                            <span className="text-4xl font-black text-white/90">
+                              {game.title.slice(0, 1).toUpperCase()}
+                            </span>
+                          </div>
+                        )}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
+                        <div className="absolute bottom-0 left-0 right-0 p-3">
+                          <h2 className="line-clamp-2 text-sm font-bold leading-snug text-white drop-shadow">
+                            {game.title}
+                          </h2>
+                        </div>
+                        <span
+                          className={`absolute right-2 top-2 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+                            game.status === 'published'
+                              ? 'bg-teal-500 text-slate-950'
+                              : 'bg-black/60 text-slate-200'
+                          }`}
                         >
-                          Open play link
-                        </a>
-                      )}
-                    </>
+                          {game.status === 'published' ? 'Live' : 'Draft'}
+                        </span>
+                      </Link>
+                      <div className="flex flex-col gap-1.5 border-t border-white/5 p-2">
+                        <Link
+                          to={`/dashboard/games/${game.id}`}
+                          className="rounded-md bg-white/10 py-1.5 text-center text-xs font-medium text-white hover:bg-white/15"
+                        >
+                          Edit
+                        </Link>
+                        <Link
+                          to={`/dashboard/games/${game.id}/scores`}
+                          className="rounded-md bg-white/5 py-1.5 text-center text-xs font-medium text-slate-300 hover:bg-white/10 hover:text-white"
+                        >
+                          Score history
+                        </Link>
+                        {game.status === 'published' && (
+                          <>
+                            <button
+                              type="button"
+                              disabled={startingId === game.id}
+                              onClick={() => void handleStartClass(game)}
+                              className="rounded-md bg-teal-500/90 py-1.5 text-xs font-semibold text-slate-950 hover:bg-teal-400 disabled:opacity-60"
+                            >
+                              {startingId === game.id ? 'Starting…' : 'Start class (live)'}
+                            </button>
+                            {game.share_slug && (
+                              <a
+                                href={playUrl(game.share_slug)}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="rounded-md py-1 text-center text-xs text-slate-400 hover:text-teal-300"
+                              >
+                                Open play link
+                              </a>
+                            )}
+                          </>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => void handleDelete(game)}
+                          className="rounded-md py-1 text-xs text-red-400/80 hover:bg-red-500/10 hover:text-red-300"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </article>
+                  ))}
+                  {subject === subjectGroups[subjectGroups.length - 1]?.subject && (
+                    <Link
+                      to="/dashboard/games/new"
+                      className="flex aspect-square flex-col items-center justify-center rounded-xl border-2 border-dashed border-white/15 text-slate-500 transition hover:border-teal-400/50 hover:text-teal-300"
+                    >
+                      <span className="text-3xl">+</span>
+                      <span className="mt-2 text-sm font-medium">New game</span>
+                    </Link>
                   )}
-                  <button
-                    type="button"
-                    onClick={() => void handleDelete(game)}
-                    className="rounded-md py-1 text-xs text-red-400/80 hover:bg-red-500/10 hover:text-red-300"
-                  >
-                    Delete
-                  </button>
                 </div>
-              </article>
+              </section>
             ))}
-
-            <Link
-              to="/dashboard/games/new"
-              className="flex aspect-square flex-col items-center justify-center rounded-xl border-2 border-dashed border-white/15 text-slate-500 transition hover:border-teal-400/50 hover:text-teal-300"
-            >
-              <span className="text-3xl">+</span>
-              <span className="mt-2 text-sm font-medium">New game</span>
-            </Link>
           </div>
         )}
       </main>
