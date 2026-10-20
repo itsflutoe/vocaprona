@@ -1,9 +1,9 @@
+import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 
 type Props = {
-  /** dark = slate-950 library chrome; light = white marketing/auth */
   variant?: 'light' | 'dark'
-  right?: React.ReactNode
+  right?: ReactNode
 }
 
 export function AppHeader({ variant = 'light', right }: Props) {
@@ -25,7 +25,7 @@ export function AppHeader({ variant = 'light', right }: Props) {
         >
           VocaProna
         </Link>
-        <div className="flex items-center gap-1 sm:gap-2">{right}</div>
+        <div className="flex flex-wrap items-center justify-end gap-1 sm:gap-2">{right}</div>
       </div>
     </header>
   )
