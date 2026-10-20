@@ -19,6 +19,7 @@ import {
   type ActivityCard,
   type ActivityType,
   type GameWithCards,
+  type TrackingMode,
 } from '@/types'
 
 const CARD_TYPES: { type: ActivityType; label: string; hint: string }[] = [
@@ -40,6 +41,7 @@ export default function GameEditor() {
   const [subject, setSubject] = useState<string>('English')
   const [customSubject, setCustomSubject] = useState('')
   const [coverUrl, setCoverUrl] = useState('')
+  const [trackingMode, setTrackingMode] = useState<TrackingMode>('class')
   const [loading, setLoading] = useState(!isNew)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -69,6 +71,7 @@ export default function GameEditor() {
       setSubject(g.subject)
       setCustomSubject(g.custom_subject || '')
       setCoverUrl(g.thumbnail_url || '')
+      setTrackingMode((g.tracking_mode as TrackingMode) || 'class')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load game')
     } finally {
@@ -106,6 +109,7 @@ export default function GameEditor() {
           description,
           subject,
           custom_subject: customSubject,
+          tracking_mode: trackingMode,
         })
         if (coverUrl.trim()) {
           await updateGame(created.id, { thumbnail_url: coverUrl.trim() })
@@ -120,6 +124,7 @@ export default function GameEditor() {
         subject,
         custom_subject: subject === 'Other' ? customSubject.trim() || null : null,
         thumbnail_url: coverUrl.trim() || null,
+        tracking_mode: trackingMode,
       })
       setGame((prev) => (prev ? { ...prev, ...updated } : prev))
       setMessage('Saved.')
@@ -342,9 +347,7 @@ export default function GameEditor() {
               className="w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
               placeholder="https://… paste image URL for the library poster"
             />
-            <p className="mt-1 text-xs text-slate-500">
-              Shown on your dashboard. Use a 1:1 (square) image if you can.
-            </p>
+            <p className="mt-1 text-xs text-slate-500">Shown on your dashboard. Use a 1:1 image if you can.</p>
             {coverUrl.trim() && (
               <div className="mt-3 aspect-square w-36 overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
                 <img
@@ -357,6 +360,20 @@ export default function GameEditor() {
                 />
               </div>
             )}
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium text-slate-700">Score tracking</label>
+            <select
+              value={trackingMode}
+              onChange={(e) => setTrackingMode(e.target.value as TrackingMode)}
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+            >
+              <option value="none">None — do not save scores</option>
+              <option value="anonymous">Anonymous — save scores, name optional</option>
+              <option value="class">Class — require student name, then save scores</option>
+            </select>
+            <p className="mt-1 text-xs text-slate-500">View results from the library → Scores on each game.</p>
           </div>
 
           <button
@@ -390,10 +407,7 @@ export default function GameEditor() {
 
               <ul className="grid gap-3 sm:grid-cols-2">
                 {cards.map((card, i) => (
-                  <li
-                    key={card.id}
-                    className="overflow-hidden rounded-xl border border-slate-200 bg-white"
-                  >
+                  <li key={card.id} className="overflow-hidden rounded-xl border border-slate-200 bg-white">
                     <div className="aspect-square w-full bg-slate-100">
                       {card.image_url ? (
                         <img src={card.image_url} alt="" className="h-full w-full object-cover" />
@@ -429,7 +443,6 @@ export default function GameEditor() {
                 <h3 className="text-lg font-semibold text-slate-900">
                   {editingCard ? 'Edit card' : 'Add a card'}
                 </h3>
-
                 <div>
                   <p className="mb-2 text-sm font-medium text-slate-700">1. What kind of practice?</p>
                   <div className="grid grid-cols-2 gap-2">
@@ -450,11 +463,8 @@ export default function GameEditor() {
                     ))}
                   </div>
                 </div>
-
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-slate-700">
-                    2. Word or sentence to practice
-                  </label>
+                  <label className="mb-1 block text-sm font-medium text-slate-700">2. Word or sentence to practice</label>
                   <input
                     value={cardWord}
                     onChange={(e) => setCardWord(e.target.value)}
@@ -464,7 +474,6 @@ export default function GameEditor() {
                     autoFocus
                   />
                 </div>
-
                 <div>
                   <label className="mb-1 block text-sm font-medium text-slate-700">Hint for student (optional)</label>
                   <input
@@ -473,12 +482,10 @@ export default function GameEditor() {
                     className="w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
                     placeholder="e.g. A large animal with a trunk"
                   />
+                  <p className="mt-1 text-xs text-slate-500">Shown when the student taps the Hint button while playing.</p>
                 </div>
-
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-slate-700">
-                    Card image URL (square 1:1 recommended)
-                  </label>
+                  <label className="mb-1 block text-sm font-medium text-slate-700">Card image URL (square 1:1 recommended)</label>
                   <input
                     value={cardImage}
                     onChange={(e) => setCardImage(e.target.value)}
@@ -491,7 +498,6 @@ export default function GameEditor() {
                     </div>
                   )}
                 </div>
-
                 <div>
                   <label className="mb-1 block text-sm font-medium text-slate-700">Also accept (optional)</label>
                   <input
@@ -500,11 +506,8 @@ export default function GameEditor() {
                     className="w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
                     placeholder="e.g. cacti, cactus plant"
                   />
-                  <p className="mt-1 text-xs text-slate-500">
-                    Comma-separated extras. Plurals of the main word are added automatically (no AI).
-                  </p>
+                  <p className="mt-1 text-xs text-slate-500">Comma-separated. Plurals are added automatically.</p>
                 </div>
-
                 <div className="flex gap-3 pt-1">
                   <button
                     type="submit"
