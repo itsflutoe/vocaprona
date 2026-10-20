@@ -42,12 +42,13 @@ export default function Landing() {
       </header>
 
       <main className="mx-auto max-w-3xl px-4 py-12 text-center sm:py-16">
-        <h1 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-5xl">
+        <p className="text-sm font-semibold uppercase tracking-wide text-teal-600">Free · No student accounts</p>
+        <h1 className="mt-3 text-3xl font-bold tracking-tight text-slate-900 sm:text-5xl">
           Speech games for every classroom
         </h1>
         <p className="mt-6 text-base text-slate-600 sm:text-lg">
-          Teachers create interactive spelling, speaking, listening, and reading games.
-          Students play free — no accounts required.
+          Teachers build picture-and-speak activities. Students say the word (or type it).
+          Run a live class with a short join code and see scores as they finish.
         </p>
         <div className="mt-10 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center">
           <Link
@@ -64,23 +65,36 @@ export default function Landing() {
           </Link>
         </div>
 
-        <div className="mt-16 grid gap-4 text-left sm:mt-20 sm:grid-cols-2">
+        <div className="mt-14 rounded-2xl border border-slate-200 bg-white p-6 text-left shadow-sm">
+          <h2 className="text-lg font-semibold text-slate-900">Quick start for teachers</h2>
+          <ol className="mt-4 list-decimal space-y-2 pl-5 text-sm text-slate-600">
+            <li>Sign up with a username (save your recovery code).</li>
+            <li>Create a game, add cards with a word + optional picture and hint.</li>
+            <li>Publish — share the play link, or tap <strong>Start class</strong> for a join code.</li>
+            <li>Watch live scores on the class host screen, or open <strong>Scores</strong> later.</li>
+          </ol>
+          <p className="mt-4 text-xs text-slate-400">
+            Mic works best in Chrome or Edge. Students can always use “Type instead.”
+          </p>
+        </div>
+
+        <div className="mt-10 grid gap-4 text-left sm:grid-cols-2">
           {[
             {
               title: 'See · speak · check',
-              desc: 'Students see a picture, speak the word, and get instant feedback.',
+              desc: 'Picture on screen, student speaks, instant feedback.',
             },
             {
               title: 'Class join codes',
-              desc: 'Start a live session and share a short code with the whole class.',
+              desc: 'One code on the board; whole class plays the same game.',
             },
             {
-              title: 'Scores for teachers',
-              desc: 'Optional tracking so you can see who finished and how they did.',
+              title: 'Live class scores',
+              desc: 'Host screen shows who finished and their results.',
             },
             {
-              title: 'No student accounts',
-              desc: 'Kids play from a link or join code — nothing to remember.',
+              title: 'No student logins',
+              desc: 'Kids only need a link or a short code.',
             },
           ].map((item) => (
             <div
@@ -95,7 +109,7 @@ export default function Landing() {
       </main>
 
       <footer className="border-t border-slate-200 py-8 text-center text-sm text-slate-400">
-        VocaProna — free educational speech games
+        VocaProna — free educational speech games · MVP ready for classroom trials
       </footer>
     </div>
   )
