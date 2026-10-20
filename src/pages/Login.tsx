@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { signIn } from '@/services/auth'
-import { AppHeader, headerLink } from '@/components/AppHeader'
+import { AppHeader, headerBtnPrimary, headerLink } from '@/components/AppHeader'
 
 export default function Login() {
   const navigate = useNavigate()
@@ -35,7 +35,13 @@ export default function Login() {
             <Link to="/library" className={headerLink(false)}>
               Library
             </Link>
-            <Link to="/register" className={headerLink(false)}>
+            <Link to="/guide" className={headerLink(false)}>
+              Guide
+            </Link>
+            <Link to="/join" className={headerLink(false)}>
+              Join
+            </Link>
+            <Link to="/register" className={headerBtnPrimary(false)}>
               Sign up
             </Link>
           </>

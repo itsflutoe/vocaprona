@@ -92,7 +92,7 @@ export default function Dashboard() {
       return
     }
     if (activeSession) {
-      if (confirm(`A class is already live. Open it?`)) {
+      if (confirm('A class is already live. Open it?')) {
         navigate(`/dashboard/session/${activeSession.id}`)
       }
       return
@@ -138,9 +138,9 @@ export default function Dashboard() {
             <Link to="/dashboard/classes" className={headerLink(true)}>
               Classes
             </Link>
-            <span className="hidden text-sm text-slate-500 sm:inline">
-              {profile?.display_name || profile?.username}
-            </span>
+            <Link to="/guide" className={headerLink(true)}>
+              Guide
+            </Link>
             <button type="button" onClick={() => void handleLogout()} className={headerBtnGhost(true)}>
               Log out
             </button>

@@ -61,6 +61,14 @@ export default function SharedLibrary() {
             <Link to="/library" className={headerLink(true, true)}>
               Library
             </Link>
+            {session && (
+              <Link to="/dashboard/classes" className={headerLink(true)}>
+                Classes
+              </Link>
+            )}
+            <Link to="/guide" className={headerLink(true)}>
+              Guide
+            </Link>
             {!session && (
               <Link to="/login" className={headerBtnPrimary(true)}>
                 Log in
@@ -72,7 +80,7 @@ export default function SharedLibrary() {
 
       <main className="mx-auto max-w-6xl px-4 py-8">
         <h1 className="text-2xl font-bold tracking-tight">Library</h1>
-        <p className="mt-1 text-sm text-slate-400">Games shared by teachers · copy to use with your class</p>
+        <p className="mt-1 text-sm text-slate-400">Games shared by teachers</p>
 
         {subjects.length > 1 && (
           <div className="mt-6 flex flex-wrap gap-2">

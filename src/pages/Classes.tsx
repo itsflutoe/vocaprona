@@ -7,7 +7,7 @@ import {
   listMySessions,
   sessionDisplayName,
 } from '@/services/sessions'
-import { AppHeader, headerLink } from '@/components/AppHeader'
+import { AppHeader, headerBtnGhost, headerLink } from '@/components/AppHeader'
 import type { SessionWithGame } from '@/types'
 
 export default function Classes() {
@@ -96,11 +96,14 @@ export default function Classes() {
             <Link to="/dashboard" className={headerLink(false)}>
               My games
             </Link>
+            <Link to="/library" className={headerLink(false)}>
+              Library
+            </Link>
             <Link to="/dashboard/classes" className={headerLink(false, true)}>
               Classes
             </Link>
-            <Link to="/library" className={headerLink(false)}>
-              Library
+            <Link to="/guide" className={headerLink(false)}>
+              Guide
             </Link>
           </>
         }

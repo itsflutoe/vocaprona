@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { signUp } from '@/services/auth'
-import { AppHeader, headerLink } from '@/components/AppHeader'
+import { AppHeader, headerBtnPrimary, headerLink } from '@/components/AppHeader'
 
 export default function Register() {
   const navigate = useNavigate()
@@ -38,7 +38,18 @@ export default function Register() {
   if (recoveryCode) {
     return (
       <div className="min-h-screen bg-slate-50">
-        <AppHeader />
+        <AppHeader
+          right={
+            <>
+              <Link to="/library" className={headerLink(false)}>
+                Library
+              </Link>
+              <Link to="/guide" className={headerLink(false)}>
+                Guide
+              </Link>
+            </>
+          }
+        />
         <div className="flex justify-center px-4 py-12">
           <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
             <h1 className="text-xl font-bold text-slate-900">Save your recovery code</h1>
@@ -76,7 +87,13 @@ export default function Register() {
             <Link to="/library" className={headerLink(false)}>
               Library
             </Link>
-            <Link to="/login" className={headerLink(false)}>
+            <Link to="/guide" className={headerLink(false)}>
+              Guide
+            </Link>
+            <Link to="/join" className={headerLink(false)}>
+              Join
+            </Link>
+            <Link to="/login" className={headerBtnPrimary(false)}>
               Log in
             </Link>
           </>
