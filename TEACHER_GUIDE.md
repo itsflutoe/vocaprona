@@ -1,42 +1,30 @@
-# VocaProna — Teacher quick start
+# VocaProna — Teacher guide
 
-**Live site:** https://vocaprona.vercel.app/
+**Site:** https://vocaprona.vercel.app/
 
-## 1. Create your account
-1. Open the site → **Sign up**
-2. Choose a **username** and password (no email required)
-3. Save your **recovery code** somewhere safe
+## Account
+1. Sign up with a username and password (no email).
+2. Save your recovery code when shown.
 
-## 2. Make a game
-1. **Library** → **+ New game**
-2. Title, optional cover image URL, **Score tracking** (Class recommended)
-3. **Save details**
-4. **+ Add card** — type (Speaking works best), word, optional hint + image URL
-5. **Publish game** → copy the share link
+## Create a game
+1. **My games** → **New game**
+2. Title, subject, optional cover URL
+3. Add cards (word + optional image and hint)
+4. **Publish**
 
-## 3. Students play alone
-- Send the **/play/…** link
-- No student accounts
-- Chrome or Edge recommended for the microphone (or use **Type instead**)
+## Students play
+- Send the play link, or
+- **Start class** → show the code → students open **/join**
 
-## 4. Whole class
-1. On a published game → **Start class**
-2. Show the big **join code** on the board
-3. Students go to **vocaprona.vercel.app/join**, enter code + name
-4. Your host screen lists who joined and scores as they finish
-5. **End class** when done
+## Scores
+- Live: host screen while the class is open
+- Later: **Scores** on the game, or **Classes** history
 
-## 5. See scores later
-- Library → **Scores** on a game
+## Share with other teachers
+1. Publish the game
+2. Enable **List in teacher Library** → Save
+3. Others find it under **Library** and can copy it
 
 ## Tips
-- Use **square** images for covers and cards
-- Fill **Hint for student** so the Hint button appears in play
-- **Also accept** for extra answers; plurals are auto-added
-- Matching is strict: missing letters (e.g. *actus* for *cactus*) will not pass
-
-## Setup checklist (admin)
-- [ ] Supabase migrations `001`–`005` applied
-- [ ] Vercel env: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`
-- [ ] Edge functions deployed for signup / recovery if used
-- [ ] Test on a real phone in Chrome
+- Chrome or Edge for the microphone; students can type instead
+- Square images look best for covers and cards
