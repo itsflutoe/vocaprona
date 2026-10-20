@@ -26,6 +26,32 @@ export async function listMyGames(): Promise<Game[]> {
   return (data || []) as Game[]
 }
 
+/** Games with a cover image: thumbnail or first activity card image */
+export async function listMyGamesWithCovers(): Promise<(Game & { cover_url: string | null })[]> {
+  const games = await listMyGames()
+  if (games.length === 0) return []
+
+  const ids = games.map((g) => g.id)
+  const { data: cards } = await supabase
+    .from('activity_cards')
+    .select('game_id, image_url, order_index')
+    .in('game_id', ids)
+    .not('image_url', 'is', null)
+    .order('order_index', { ascending: true })
+
+  const firstImage = new Map<string, string>()
+  for (const c of cards || []) {
+    if (c.image_url && !firstImage.has(c.game_id)) {
+      firstImage.set(c.game_id, c.image_url as string)
+    }
+  }
+
+  return games.map((g) => ({
+    ...g,
+    cover_url: g.thumbnail_url || firstImage.get(g.id) || null,
+  }))
+}
+
 export async function getGame(id: string): Promise<GameWithCards | null> {
   const { data: game, error } = await supabase
     .from('games')
@@ -135,7 +161,6 @@ export async function publishGame(id: string): Promise<Game> {
 
   let slug = game.share_slug
   if (!slug) {
-    // try a few times for uniqueness
     for (let i = 0; i < 5; i++) {
       slug = randomSlug()
       const { data: existing } = await supabase
@@ -149,10 +174,17 @@ export async function publishGame(id: string): Promise<Game> {
     if (!slug) throw new Error('Could not generate a unique share link. Try again.')
   }
 
+  // Cover art: first card image if no thumbnail set
+  const cover =
+    game.thumbnail_url ||
+    game.activity_cards.find((c) => c.image_url)?.image_url ||
+    null
+
   return updateGame(id, {
     status: 'published',
     share_enabled: true,
     share_slug: slug,
+    thumbnail_url: cover,
   })
 }
 
@@ -164,7 +196,6 @@ export async function unpublishGame(id: string): Promise<Game> {
 }
 
 export async function addCard(gameId: string, input: CreateCardInput): Promise<ActivityCard> {
-  // next order_index
   const { data: existing } = await supabase
     .from('activity_cards')
     .select('order_index')
