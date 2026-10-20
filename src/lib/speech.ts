@@ -4,6 +4,8 @@
  * but still allows 1 letter substitution on same-length words and simple plurals.
  */
 
+import { buildAcceptedAnswers } from '@/lib/answers'
+
 export type SpeechRecognitionLike = {
   lang: string
   continuous: boolean
@@ -71,7 +73,6 @@ function lettersOnly(s: string): string {
   return s.replace(/[^a-z]/g, '')
 }
 
-/** Count character substitutions for equal-length strings */
 function substitutionCount(a: string, b: string): number {
   if (a.length !== b.length) return 999
   let d = 0
@@ -81,29 +82,18 @@ function substitutionCount(a: string, b: string): number {
   return d
 }
 
-/**
- * True only if spoken is a real match for target — not a shorter fragment.
- * Allows: exact, simple plural, same-length with 1 wrong letter (e.g. cactos≈cactus).
- * Rejects: actus≠cactus, pant≠plant, ant≠plant (missing letters / different length).
- */
 function isCloseMatch(spoken: string, target: string): boolean {
   const s = lettersOnly(spoken)
   const t = lettersOnly(target)
   if (!s || !t) return false
 
-  // Exact
   if (s === t) return true
-
-  // Simple plurals (same stem)
   if (s === t + 's' || s === t + 'es') return true
   if (t === s + 's' || t === s + 'es') return true
 
-  // Phrase: any whole word equals target
   const words = spoken.split(/\s+/).map(lettersOnly).filter(Boolean)
   if (words.some((w) => w === t || w === t + 's' || w === t + 'es')) return true
 
-  // Same length only: at most 1 substituted letter (not insert/delete)
-  // Requires words of 4+ letters so short words stay exact
   if (s.length === t.length && t.length >= 4 && substitutionCount(s, t) <= 1) {
     return true
   }
@@ -113,14 +103,21 @@ function isCloseMatch(spoken: string, target: string): boolean {
 
 /**
  * Check spoken alternatives against accepted answers.
+ * Also expands each answer with auto plurals so old cards still get cacti, etc.
  */
 export function checkSpokenAnswer(
   alternatives: string[],
   acceptedAnswers: string[]
 ): { matched: boolean; bestHeard: string } {
-  const targets = acceptedAnswers
-    .map((a) => cleanSpeech(a))
-    .filter(Boolean)
+  const expanded = new Set<string>()
+  for (const a of acceptedAnswers) {
+    for (const x of buildAcceptedAnswers(a)) {
+      expanded.add(x)
+    }
+    const cleaned = cleanSpeech(a)
+    if (cleaned) expanded.add(cleaned)
+  }
+  const targets = [...expanded]
 
   let bestHeard = alternatives[0] || ''
 
@@ -147,7 +144,6 @@ export function speakText(text: string, lang = 'en-US'): void {
   window.speechSynthesis.speak(u)
 }
 
-/** Display word with optional missing letter indices (0-based on letters only) */
 export function formatMaskedWord(
   word: string,
   missingIndices: number[] | null | undefined
