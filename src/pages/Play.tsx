@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { getGameBySlug } from '@/services/games'
+import { submitAttempt } from '@/services/scores'
 import {
   checkSpokenAnswer,
   formatMaskedWord,
@@ -12,10 +13,6 @@ import {
 } from '@/lib/speech'
 import type { ActivityCard, GameWithCards } from '@/types'
 
-/**
- * Student play — Scigame mechanics:
- * image + prompt → mic → hear → lenient check → next / complete
- */
 export default function Play() {
   const { slug } = useParams<{ slug: string }>()
   const [game, setGame] = useState<GameWithCards | null>(null)
@@ -30,12 +27,18 @@ export default function Play() {
   const [listening, setListening] = useState(false)
   const [micOk, setMicOk] = useState(false)
   const [speechOk] = useState(() => isSpeechSupported())
+  const [correctCount, setCorrectCount] = useState(0)
+  const [playerName, setPlayerName] = useState('')
+  const [scoreSaved, setScoreSaved] = useState(false)
 
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null)
   const advancingRef = useRef(false)
+  const startedAtRef = useRef<number>(0)
+  const correctRef = useRef(0)
 
   const cards = game?.activity_cards || []
   const card: ActivityCard | undefined = cards[index]
+  const tracking = game?.tracking_mode || 'none'
 
   useEffect(() => {
     if (!slug) return
@@ -81,15 +84,41 @@ export default function Play() {
     return rec
   }, [])
 
+  const saveScore = useCallback(
+    async (finalCorrect: number) => {
+      if (!game || tracking === 'none' || scoreSaved) return
+      const duration = startedAtRef.current
+        ? Math.round((Date.now() - startedAtRef.current) / 1000)
+        : null
+      const label =
+        tracking === 'class'
+          ? playerName.trim() || 'Student'
+          : playerName.trim() || 'Anonymous'
+      await submitAttempt({
+        gameId: game.id,
+        playerLabel: label,
+        score: finalCorrect * 2,
+        totalCards: cards.length,
+        correctCount: finalCorrect,
+        durationSeconds: duration,
+      })
+      setScoreSaved(true)
+    },
+    [game, tracking, scoreSaved, playerName, cards.length]
+  )
+
   const onCorrect = useCallback(() => {
     if (advancingRef.current) return
     advancingRef.current = true
+    correctRef.current += 1
+    setCorrectCount(correctRef.current)
     setFeedback('✅ Correct!')
     setFeedbackOk(true)
     setTimeout(() => {
       setIndex((i) => {
         const next = i + 1
         if (next >= cards.length) {
+          void saveScore(correctRef.current)
           setScreen('complete')
           return i
         }
@@ -103,7 +132,7 @@ export default function Play() {
         advancingRef.current = false
       }, 100)
     }, 900)
-  }, [cards.length])
+  }, [cards.length, saveScore])
 
   const handleTranscripts = useCallback(
     (alts: string[]) => {
@@ -115,13 +144,13 @@ export default function Play() {
       if (matched) {
         onCorrect()
       } else {
-        setFeedback('❌ Try again')
+        setFeedback('❌ Try again — speak clearly')
         setFeedbackOk(false)
         setTimeout(() => {
           setHeard('—')
           setFeedback('')
           setFeedbackOk(null)
-        }, 1200)
+        }, 1400)
       }
     },
     [card, acceptedFor, onCorrect]
@@ -171,9 +200,7 @@ export default function Play() {
       setFeedback('Listening…')
       setFeedbackOk(null)
     }
-    rec.onend = () => {
-      setListening(false)
-    }
+    rec.onend = () => setListening(false)
     rec.onerror = (event) => {
       setListening(false)
       const err = event.error || ''
@@ -181,7 +208,7 @@ export default function Play() {
         setFeedback('❌ Please allow microphone access')
         setFeedbackOk(false)
       } else if (err === 'no-speech') {
-        setFeedback("❌ I didn't hear anything. Try again!")
+        setFeedback("❌ Didn't catch that. Tap mic and try again!")
         setFeedbackOk(false)
       } else if (err !== 'aborted') {
         setFeedback('❌ Try again')
@@ -233,12 +260,21 @@ export default function Play() {
   }, [screen, startListening])
 
   async function handleStart() {
+    if (tracking === 'class' && !playerName.trim()) {
+      setError('Enter your name so your teacher can see your score.')
+      return
+    }
+    setError('')
     const ok = await requestMicPermission()
     setMicOk(ok)
     setIndex(0)
     setFeedback('')
     setFeedbackOk(null)
     setHeard('—')
+    correctRef.current = 0
+    setCorrectCount(0)
+    setScoreSaved(false)
+    startedAtRef.current = Date.now()
     advancingRef.current = false
     setScreen('game')
   }
@@ -248,6 +284,9 @@ export default function Play() {
     setFeedback('')
     setFeedbackOk(null)
     setHeard('—')
+    correctRef.current = 0
+    setCorrectCount(0)
+    setScoreSaved(false)
     advancingRef.current = false
     setScreen('home')
   }
@@ -260,7 +299,7 @@ export default function Play() {
     )
   }
 
-  if (error || !game) {
+  if ((error && !game) || !game) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-slate-100 px-4">
         <p className="max-w-md text-center text-slate-700">{error || 'Game not found'}</p>
@@ -291,9 +330,7 @@ export default function Play() {
         <div className="h-2 flex-1 overflow-hidden rounded-full bg-white/20">
           <div
             className="h-full rounded-full bg-amber-300 transition-all duration-500"
-            style={{
-              width: `${screen === 'complete' ? 100 : progressPct}%`,
-            }}
+            style={{ width: `${screen === 'complete' ? 100 : progressPct}%` }}
           />
         </div>
         <span className="text-sm font-medium text-teal-100">
@@ -303,7 +340,7 @@ export default function Play() {
 
       <div className="mx-auto max-w-lg px-4 py-6">
         {screen === 'home' && (
-          <div className="rounded-3xl bg-white p-8 text-center text-slate-900 shadow-xl">
+          <div className="rounded-3xl bg-white p-6 text-center text-slate-900 shadow-xl sm:p-8">
             <p className="text-xs font-bold uppercase tracking-widest text-teal-600">VocaProna</p>
             <h1 className="mt-2 text-2xl font-bold">{game.title}</h1>
             <p className="mt-2 text-sm text-slate-500">
@@ -318,6 +355,25 @@ export default function Play() {
                 Tip: use <strong>Chrome</strong> or <strong>Edge</strong> for the microphone.
               </p>
             )}
+            {(tracking === 'class' || tracking === 'anonymous') && (
+              <div className="mt-6 text-left">
+                <label className="mb-1 block text-sm font-medium text-slate-700">
+                  {tracking === 'class' ? 'Your name (required for score)' : 'Your name (optional)'}
+                </label>
+                <input
+                  value={playerName}
+                  onChange={(e) => setPlayerName(e.target.value)}
+                  className="w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                  placeholder={tracking === 'class' ? 'e.g. Mia' : 'Anonymous'}
+                  maxLength={40}
+                />
+              </div>
+            )}
+            {error && (
+              <p className="mt-3 text-sm text-red-600" role="alert">
+                {error}
+              </p>
+            )}
             <button
               type="button"
               onClick={() => void handleStart()}
@@ -329,7 +385,7 @@ export default function Play() {
         )}
 
         {screen === 'game' && card && (
-          <div className="rounded-3xl bg-white p-6 text-center text-slate-900 shadow-xl">
+          <div className="rounded-3xl bg-white p-5 text-center text-slate-900 shadow-xl sm:p-6">
             <h2 className="text-lg font-semibold text-slate-800">{prompt}</h2>
 
             <div className="mx-auto mt-5 aspect-square w-full max-w-xs overflow-hidden rounded-2xl bg-slate-100">
@@ -338,6 +394,9 @@ export default function Play() {
                   src={card.image_url}
                   alt={card.image_alt || card.target_text || 'Card'}
                   className="h-full w-full object-cover"
+                  onError={(e) => {
+                    ;(e.target as HTMLImageElement).style.display = 'none'
+                  }}
                 />
               ) : (
                 <div className="flex h-full items-center justify-center text-6xl" aria-hidden>
@@ -378,12 +437,15 @@ export default function Play() {
                 {listening ? '⏹' : '🎤'}
               </button>
               <p className="mt-3 text-sm text-slate-500">
-                Tap the mic or press <kbd className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs">Space</kbd>
+                Tap the mic or press{' '}
+                <kbd className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs">Space</kbd>
               </p>
             </div>
 
             <div className="mt-6 rounded-xl bg-slate-50 px-4 py-3">
-              <span className="text-xs font-medium uppercase tracking-wide text-slate-400">I heard</span>
+              <span className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                I heard
+              </span>
               <p className="mt-0.5 text-lg font-medium text-slate-800">{heard}</p>
             </div>
 
@@ -402,12 +464,12 @@ export default function Play() {
         )}
 
         {screen === 'complete' && (
-          <div className="rounded-3xl bg-white p-8 text-center text-slate-900 shadow-xl">
+          <div className="rounded-3xl bg-white p-6 text-center text-slate-900 shadow-xl sm:p-8">
             <p className="text-4xl">⭐⭐⭐</p>
             <h1 className="mt-3 text-2xl font-bold">Mission complete!</h1>
             <p className="mt-2 text-slate-600">
-              You finished <strong>{game.title}</strong> — {cards.length}{' '}
-              {cards.length === 1 ? 'card' : 'cards'}.
+              You got <strong>{correctCount}</strong> of <strong>{cards.length}</strong> correct
+              {tracking !== 'none' && scoreSaved ? ' · score saved' : ''}
             </p>
             <ul className="mt-6 space-y-2 text-left">
               {cards.map((c, i) => (
@@ -417,9 +479,15 @@ export default function Play() {
                 >
                   <span className="font-bold text-teal-600">{i + 1}</span>
                   {c.image_url ? (
-                    <img src={c.image_url} alt="" className="h-10 w-10 rounded-lg object-cover" />
+                    <img
+                      src={c.image_url}
+                      alt=""
+                      className="h-10 w-10 rounded-lg object-cover"
+                    />
                   ) : (
-                    <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-200">🎤</span>
+                    <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-200">
+                      🎤
+                    </span>
                   )}
                   <span className="font-medium">{c.target_text || c.prompt || 'Card'}</span>
                 </li>

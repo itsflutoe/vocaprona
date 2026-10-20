@@ -10,6 +10,7 @@ import GameEditor from '@/pages/GameEditor'
 import Play from '@/pages/Play'
 import Join from '@/pages/Join'
 import SessionHost from '@/pages/SessionHost'
+import Results from '@/pages/Results'
 
 export default function App() {
   return (
@@ -43,6 +44,14 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <GameEditor />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard/games/:id/scores"
+            element={
+              <ProtectedRoute>
+                <Results />
               </ProtectedRoute>
             }
           />
