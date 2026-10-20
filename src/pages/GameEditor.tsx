@@ -38,6 +38,7 @@ export default function GameEditor() {
   const [description, setDescription] = useState('')
   const [subject, setSubject] = useState<string>('English')
   const [customSubject, setCustomSubject] = useState('')
+  const [coverUrl, setCoverUrl] = useState('')
   const [loading, setLoading] = useState(!isNew)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -45,7 +46,6 @@ export default function GameEditor() {
   const [showCardForm, setShowCardForm] = useState(false)
   const [editingCard, setEditingCard] = useState<ActivityCard | null>(null)
 
-  // Simple card fields only
   const [cardType, setCardType] = useState<ActivityType>('speech')
   const [cardWord, setCardWord] = useState('')
   const [cardPrompt, setCardPrompt] = useState('')
@@ -66,6 +66,7 @@ export default function GameEditor() {
       setDescription(g.description || '')
       setSubject(g.subject)
       setCustomSubject(g.custom_subject || '')
+      setCoverUrl(g.thumbnail_url || '')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load game')
     } finally {
@@ -103,6 +104,9 @@ export default function GameEditor() {
           subject,
           custom_subject: customSubject,
         })
+        if (coverUrl.trim()) {
+          await updateGame(created.id, { thumbnail_url: coverUrl.trim() })
+        }
         navigate(`/dashboard/games/${created.id}`, { replace: true })
         return
       }
@@ -112,6 +116,7 @@ export default function GameEditor() {
         description: description.trim() || null,
         subject,
         custom_subject: subject === 'Other' ? customSubject.trim() || null : null,
+        thumbnail_url: coverUrl.trim() || null,
       })
       setGame((prev) => (prev ? { ...prev, ...updated } : prev))
       setMessage('Saved.')
@@ -151,11 +156,12 @@ export default function GameEditor() {
     setError('')
     setMessage('')
     try {
+      const img = cardImage.trim() || undefined
       const payload = {
         type: cardType,
         target_text: word,
         prompt: cardPrompt.trim() || undefined,
-        image_url: cardImage.trim() || undefined,
+        image_url: img,
         accepted_answers: [word],
       }
 
@@ -164,6 +170,13 @@ export default function GameEditor() {
       } else {
         await addCard(id, payload)
       }
+
+      // If game has no cover yet and this card has an image, use it as cover
+      if (img && !coverUrl.trim()) {
+        await updateGame(id, { thumbnail_url: img })
+        setCoverUrl(img)
+      }
+
       setShowCardForm(false)
       resetCardForm()
       await load()
@@ -196,8 +209,13 @@ export default function GameEditor() {
     setError('')
     setMessage('')
     try {
+      // Persist cover before publish
+      if (coverUrl.trim()) {
+        await updateGame(id, { thumbnail_url: coverUrl.trim() })
+      }
       const updated = await publishGame(id)
       setGame((prev) => (prev ? { ...prev, ...updated } : prev))
+      if (updated.thumbnail_url) setCoverUrl(updated.thumbnail_url)
       setMessage('Published! Share link is ready.')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Publish failed')
@@ -237,7 +255,7 @@ export default function GameEditor() {
       <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-4">
           <Link to="/dashboard" className="text-sm font-medium text-teal-700 hover:underline">
-            ← Dashboard
+            ← Library
           </Link>
           <span className="text-sm text-slate-500">
             {isNew ? 'New game' : game?.status === 'published' ? 'Published' : 'Draft'}
@@ -305,6 +323,35 @@ export default function GameEditor() {
               </div>
             )}
           </div>
+
+          {/* Library cover — 1:1 square */}
+          <div>
+            <label className="mb-1 block text-sm font-medium text-slate-700">
+              Library cover image (square works best)
+            </label>
+            <input
+              value={coverUrl}
+              onChange={(e) => setCoverUrl(e.target.value)}
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+              placeholder="https://… paste image URL for the library poster"
+            />
+            <p className="mt-1 text-xs text-slate-500">
+              Shown on your dashboard like a Netflix poster. Use a 1:1 (square) image if you can.
+            </p>
+            {coverUrl.trim() && (
+              <div className="mt-3 aspect-square w-36 overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
+                <img
+                  src={coverUrl.trim()}
+                  alt="Cover preview"
+                  className="h-full w-full object-cover"
+                  onError={(e) => {
+                    ;(e.target as HTMLImageElement).style.opacity = '0.3'
+                  }}
+                />
+              </div>
+            )}
+          </div>
+
           <button
             type="submit"
             disabled={saving}
@@ -318,9 +365,7 @@ export default function GameEditor() {
           <>
             <section className="mt-8">
               <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-slate-900">
-                  Cards ({cards.length})
-                </h2>
+                <h2 className="text-lg font-semibold text-slate-900">Cards ({cards.length})</h2>
                 <button
                   type="button"
                   onClick={openNewCard}
@@ -336,35 +381,50 @@ export default function GameEditor() {
                 </p>
               )}
 
-              <ul className="space-y-3">
+              <ul className="grid gap-3 sm:grid-cols-2">
                 {cards.map((card, i) => (
                   <li
                     key={card.id}
-                    className="flex items-start justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4"
+                    className="overflow-hidden rounded-xl border border-slate-200 bg-white"
                   >
-                    <div>
-                      <p className="text-xs font-medium uppercase tracking-wide text-teal-700">
-                        {i + 1}. {ACTIVITY_TYPE_LABELS[card.type]}
-                      </p>
-                      <p className="mt-1 font-medium text-slate-900">
-                        {card.target_text || card.prompt || '(empty)'}
-                      </p>
+                    <div className="aspect-square w-full bg-slate-100">
+                      {card.image_url ? (
+                        <img
+                          src={card.image_url}
+                          alt=""
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-full items-center justify-center text-4xl text-slate-300">
+                          🎤
+                        </div>
+                      )}
                     </div>
-                    <div className="flex shrink-0 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => openEditCard(card)}
-                        className="text-sm text-slate-600 hover:text-teal-700"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void handleDeleteCard(card.id)}
-                        className="text-sm text-red-600 hover:underline"
-                      >
-                        Delete
-                      </button>
+                    <div className="flex items-start justify-between gap-2 p-3">
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium uppercase tracking-wide text-teal-700">
+                          {i + 1}. {ACTIVITY_TYPE_LABELS[card.type]}
+                        </p>
+                        <p className="mt-0.5 truncate font-medium text-slate-900">
+                          {card.target_text || card.prompt || '(empty)'}
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => openEditCard(card)}
+                          className="text-sm text-slate-600 hover:text-teal-700"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void handleDeleteCard(card.id)}
+                          className="text-sm text-red-600 hover:underline"
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </div>
                   </li>
                 ))}
@@ -380,7 +440,6 @@ export default function GameEditor() {
                   {editingCard ? 'Edit card' : 'Add a card'}
                 </h3>
 
-                {/* Step 1: type as big buttons */}
                 <div>
                   <p className="mb-2 text-sm font-medium text-slate-700">1. What kind of practice?</p>
                   <div className="grid grid-cols-2 gap-2">
@@ -402,7 +461,6 @@ export default function GameEditor() {
                   </div>
                 </div>
 
-                {/* Step 2: the word */}
                 <div>
                   <label className="mb-1 block text-sm font-medium text-slate-700">
                     2. Word or sentence to practice
@@ -417,7 +475,6 @@ export default function GameEditor() {
                   />
                 </div>
 
-                {/* Optional extras collapsed by simplicity */}
                 <div>
                   <label className="mb-1 block text-sm font-medium text-slate-700">
                     Hint for student (optional)
@@ -432,14 +489,23 @@ export default function GameEditor() {
 
                 <div>
                   <label className="mb-1 block text-sm font-medium text-slate-700">
-                    Image link (optional)
+                    Card image URL (square 1:1 recommended)
                   </label>
                   <input
                     value={cardImage}
                     onChange={(e) => setCardImage(e.target.value)}
                     className="w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
-                    placeholder="https://… paste a picture URL"
+                    placeholder="https://…"
                   />
+                  {cardImage.trim() && (
+                    <div className="mt-3 aspect-square w-32 overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
+                      <img
+                        src={cardImage.trim()}
+                        alt="Card preview"
+                        className="h-full w-full object-cover"
+                      />
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex gap-3 pt-1">
