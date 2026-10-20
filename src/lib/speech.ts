@@ -1,6 +1,7 @@
 /**
- * Browser Web Speech API helpers + kid-friendly answer matching
- * (mechanics aligned with itsflutoe/Scigame — read-only reference).
+ * Browser Web Speech API helpers + answer matching.
+ * Strict enough that partial words (actus ≠ cactus, pant ≠ plant) fail,
+ * but still allows 1 letter substitution on same-length words and simple plurals.
  */
 
 export type SpeechRecognitionLike = {
@@ -66,31 +67,52 @@ export function cleanSpeech(text: string): string {
     .trim()
 }
 
-function looksSimilar(spoken: string, target: string): boolean {
-  if (!spoken || spoken.length < 1) return false
-  if (spoken === target) return true
-  if (spoken.includes(target) || target.includes(spoken)) return true
+function lettersOnly(s: string): string {
+  return s.replace(/[^a-z]/g, '')
+}
 
-  if (target.length <= 5) {
-    let matches = 0
-    for (const char of target) {
-      if (spoken.includes(char)) matches++
-    }
-    return matches >= Math.ceil(target.length * 0.7)
+/** Count character substitutions for equal-length strings */
+function substitutionCount(a: string, b: string): number {
+  if (a.length !== b.length) return 999
+  let d = 0
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) d++
   }
-
-  const start = target.slice(0, 4)
-  if (spoken.includes(start) || spoken.startsWith(start.slice(0, 3))) return true
-
-  let matches = 0
-  for (const char of target) {
-    if (spoken.includes(char)) matches++
-  }
-  return matches >= Math.ceil(target.length * 0.6)
+  return d
 }
 
 /**
- * Check spoken alternatives against accepted answers (lenient, Scigame-style).
+ * True only if spoken is a real match for target — not a shorter fragment.
+ * Allows: exact, simple plural, same-length with 1 wrong letter (e.g. cactos≈cactus).
+ * Rejects: actus≠cactus, pant≠plant, ant≠plant (missing letters / different length).
+ */
+function isCloseMatch(spoken: string, target: string): boolean {
+  const s = lettersOnly(spoken)
+  const t = lettersOnly(target)
+  if (!s || !t) return false
+
+  // Exact
+  if (s === t) return true
+
+  // Simple plurals (same stem)
+  if (s === t + 's' || s === t + 'es') return true
+  if (t === s + 's' || t === s + 'es') return true
+
+  // Phrase: any whole word equals target
+  const words = spoken.split(/\s+/).map(lettersOnly).filter(Boolean)
+  if (words.some((w) => w === t || w === t + 's' || w === t + 'es')) return true
+
+  // Same length only: at most 1 substituted letter (not insert/delete)
+  // Requires words of 4+ letters so short words stay exact
+  if (s.length === t.length && t.length >= 4 && substitutionCount(s, t) <= 1) {
+    return true
+  }
+
+  return false
+}
+
+/**
+ * Check spoken alternatives against accepted answers.
  */
 export function checkSpokenAnswer(
   alternatives: string[],
@@ -100,22 +122,20 @@ export function checkSpokenAnswer(
     .map((a) => cleanSpeech(a))
     .filter(Boolean)
 
-  let matched = false
   let bestHeard = alternatives[0] || ''
 
   for (const raw of alternatives) {
     const cleaned = cleanSpeech(raw)
     if (!cleaned) continue
     for (const answer of targets) {
-      if (looksSimilar(cleaned, answer)) {
-        matched = true
-        bestHeard = raw
-        return { matched, bestHeard }
+      if (isCloseMatch(cleaned, answer)) {
+        return { matched: true, bestHeard: raw }
       }
     }
+    if (raw) bestHeard = raw
   }
 
-  return { matched, bestHeard }
+  return { matched: false, bestHeard }
 }
 
 export function speakText(text: string, lang = 'en-US'): void {
@@ -134,7 +154,6 @@ export function formatMaskedWord(
 ): string {
   if (!word) return ''
   if (!missingIndices || missingIndices.length === 0) {
-    // Default: hide ~40% of letters for spelling-style hint
     const letters = word.split('')
     const letterPositions: number[] = []
     letters.forEach((ch, i) => {
@@ -142,11 +161,15 @@ export function formatMaskedWord(
     })
     const hideCount = Math.max(1, Math.floor(letterPositions.length * 0.4))
     const hide = new Set(
-      letterPositions.filter((_, idx) => idx % Math.max(1, Math.floor(letterPositions.length / hideCount)) === 0).slice(0, hideCount)
+      letterPositions
+        .filter(
+          (_, idx) =>
+            idx % Math.max(1, Math.floor(letterPositions.length / hideCount)) === 0
+        )
+        .slice(0, hideCount)
     )
     return letters.map((ch, i) => (hide.has(i) ? '_' : ch)).join('')
   }
-  // missingIndices refer to letter index among a-z only
   let letterIdx = 0
   return word
     .split('')
