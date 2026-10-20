@@ -2,7 +2,6 @@ import { supabase } from '@/lib/supabase'
 import type { ClassroomSession, SessionParticipant, SessionWithGame } from '@/types'
 
 function randomJoinCode(len = 4): string {
-  // Easy to read aloud (no 0/O, 1/I)
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
   let out = ''
   for (let i = 0; i < len; i++) {
@@ -13,14 +12,17 @@ function randomJoinCode(len = 4): string {
 
 export async function startSession(
   teacherId: string,
-  gameId: string
+  gameId: string,
+  title?: string
 ): Promise<ClassroomSession> {
-  // End any other active sessions for this teacher (one live class at a time)
+  // One active class at a time for this teacher
   await supabase
     .from('classroom_sessions')
     .update({ status: 'ended', ended_at: new Date().toISOString() })
     .eq('teacher_id', teacherId)
     .eq('status', 'active')
+
+  const sessionTitle = title?.trim() || null
 
   let lastError = 'Could not create session'
   for (let attempt = 0; attempt < 8; attempt++) {
@@ -32,6 +34,7 @@ export async function startSession(
         teacher_id: teacherId,
         join_code: code,
         status: 'active',
+        title: sessionTitle,
       })
       .select()
       .single()
@@ -46,6 +49,14 @@ export async function endSession(sessionId: string): Promise<void> {
   const { error } = await supabase
     .from('classroom_sessions')
     .update({ status: 'ended', ended_at: new Date().toISOString() })
+    .eq('id', sessionId)
+  if (error) throw new Error(error.message)
+}
+
+export async function renameSession(sessionId: string, title: string): Promise<void> {
+  const { error } = await supabase
+    .from('classroom_sessions')
+    .update({ title: title.trim() || null })
     .eq('id', sessionId)
   if (error) throw new Error(error.message)
 }
@@ -118,9 +129,28 @@ export async function getMyActiveSession(teacherId: string): Promise<SessionWith
   return data as SessionWithGame | null
 }
 
+/** Recent sessions for this teacher (active + ended history) */
+export async function listMySessions(teacherId: string, limit = 30): Promise<SessionWithGame[]> {
+  const { data, error } = await supabase
+    .from('classroom_sessions')
+    .select('*, games(id, title, share_slug, thumbnail_url, subject, status)')
+    .eq('teacher_id', teacherId)
+    .order('created_at', { ascending: false })
+    .limit(limit)
+
+  if (error) throw new Error(error.message)
+  return (data || []) as SessionWithGame[]
+}
+
 export function joinUrl(code: string): string {
   if (typeof window !== 'undefined') {
     return `${window.location.origin}/join?code=${encodeURIComponent(code)}`
   }
   return `/join?code=${encodeURIComponent(code)}`
+}
+
+export function sessionDisplayName(s: SessionWithGame): string {
+  if (s.title?.trim()) return s.title.trim()
+  const gameTitle = s.games?.title || 'Game'
+  return `${gameTitle} · ${new Date(s.created_at).toLocaleString()}`
 }

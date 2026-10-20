@@ -102,6 +102,7 @@ export interface ClassroomSession {
   teacher_id: string
   join_code: string
   status: SessionStatus
+  title: string | null
   created_at: string
   ended_at: string | null
 }
