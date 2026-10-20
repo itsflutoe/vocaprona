@@ -12,6 +12,8 @@ import Join from '@/pages/Join'
 import SessionHost from '@/pages/SessionHost'
 import Results from '@/pages/Results'
 import Classes from '@/pages/Classes'
+import SharedLibrary from '@/pages/SharedLibrary'
+import LibraryPreview from '@/pages/LibraryPreview'
 
 export default function App() {
   return (
@@ -24,6 +26,8 @@ export default function App() {
           <Route path="/recover" element={<Recover />} />
           <Route path="/play/:slug" element={<Play />} />
           <Route path="/join" element={<Join />} />
+          <Route path="/library" element={<SharedLibrary />} />
+          <Route path="/library/:id" element={<LibraryPreview />} />
           <Route
             path="/dashboard"
             element={
