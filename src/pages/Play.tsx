@@ -99,7 +99,6 @@ export default function Play() {
         advancingRef.current = false
         return next
       })
-      // if last card, still clear advancing on complete
       setTimeout(() => {
         advancingRef.current = false
       }, 100)
@@ -204,7 +203,6 @@ export default function Play() {
     try {
       rec.start()
     } catch {
-      // recreate if stuck
       const fresh = setupRecognition()
       recognitionRef.current = fresh
       if (fresh) {
@@ -222,7 +220,6 @@ export default function Play() {
     }
   }, [speechOk, listening, micOk, stopListening, setupRecognition, handleTranscripts])
 
-  // Space = mic (Scigame)
   useEffect(() => {
     if (screen !== 'game') return
     const onKey = (e: KeyboardEvent) => {
@@ -290,7 +287,6 @@ export default function Play() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-teal-600 to-teal-900 text-white">
-      {/* Progress */}
       <div className="mx-auto flex max-w-lg items-center gap-3 px-4 pt-4">
         <div className="h-2 flex-1 overflow-hidden rounded-full bg-white/20">
           <div
@@ -306,7 +302,6 @@ export default function Play() {
       </div>
 
       <div className="mx-auto max-w-lg px-4 py-6">
-        {/* HOME */}
         {screen === 'home' && (
           <div className="rounded-3xl bg-white p-8 text-center text-slate-900 shadow-xl">
             <p className="text-xs font-bold uppercase tracking-widest text-teal-600">VocaProna</p>
@@ -333,27 +328,24 @@ export default function Play() {
           </div>
         )}
 
-        {/* GAME */}
         {screen === 'game' && card && (
           <div className="rounded-3xl bg-white p-6 text-center text-slate-900 shadow-xl">
             <h2 className="text-lg font-semibold text-slate-800">{prompt}</h2>
 
-            {/* Image */}
-            <div className="mx-auto mt-5 flex h-48 max-w-xs items-center justify-center overflow-hidden rounded-2xl bg-slate-100">
+            <div className="mx-auto mt-5 aspect-square w-full max-w-xs overflow-hidden rounded-2xl bg-slate-100">
               {card.image_url ? (
                 <img
                   src={card.image_url}
                   alt={card.image_alt || card.target_text || 'Card'}
-                  className="max-h-full max-w-full object-contain"
+                  className="h-full w-full object-cover"
                 />
               ) : (
-                <span className="text-6xl" aria-hidden>
+                <div className="flex h-full items-center justify-center text-6xl" aria-hidden>
                   {card.type === 'listening' ? '🔊' : card.type === 'sentence' ? '📖' : '🎤'}
-                </span>
+                </div>
               )}
             </div>
 
-            {/* Masked / target hint (not full reveal until correct for speech/spelling) */}
             {masked && (
               <p className="mt-4 font-mono text-2xl font-bold tracking-widest text-teal-800">
                 {feedbackOk ? card.target_text : masked}
@@ -372,7 +364,6 @@ export default function Play() {
               </button>
             )}
 
-            {/* Mic */}
             <div className="mt-8">
               <button
                 type="button"
@@ -391,13 +382,11 @@ export default function Play() {
               </p>
             </div>
 
-            {/* Heard */}
             <div className="mt-6 rounded-xl bg-slate-50 px-4 py-3">
               <span className="text-xs font-medium uppercase tracking-wide text-slate-400">I heard</span>
               <p className="mt-0.5 text-lg font-medium text-slate-800">{heard}</p>
             </div>
 
-            {/* Feedback */}
             <div
               className={`mt-4 min-h-[1.75rem] text-lg font-bold ${
                 feedbackOk === true
@@ -412,7 +401,6 @@ export default function Play() {
           </div>
         )}
 
-        {/* COMPLETE */}
         {screen === 'complete' && (
           <div className="rounded-3xl bg-white p-8 text-center text-slate-900 shadow-xl">
             <p className="text-4xl">⭐⭐⭐</p>
