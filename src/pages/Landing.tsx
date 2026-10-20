@@ -10,6 +10,12 @@ export default function Landing() {
         <span className="text-xl font-bold text-teal-700">VocaProna</span>
         <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
           <Link
+            to="/library"
+            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          >
+            Shared Library
+          </Link>
+          <Link
             to="/join"
             className="rounded-lg border border-teal-600 bg-white px-3 py-2 text-sm font-medium text-teal-700 hover:bg-teal-50"
           >
@@ -20,7 +26,7 @@ export default function Landing() {
               to="/dashboard"
               className="rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white hover:bg-teal-700"
             >
-              Library
+              My library
             </Link>
           ) : (
             <>
@@ -42,13 +48,15 @@ export default function Landing() {
       </header>
 
       <main className="mx-auto max-w-3xl px-4 py-12 text-center sm:py-16">
-        <p className="text-sm font-semibold uppercase tracking-wide text-teal-600">Free · No student accounts</p>
+        <p className="text-sm font-semibold uppercase tracking-wide text-teal-600">
+          Free · No student accounts
+        </p>
         <h1 className="mt-3 text-3xl font-bold tracking-tight text-slate-900 sm:text-5xl">
           Speech games for every classroom
         </h1>
         <p className="mt-6 text-base text-slate-600 sm:text-lg">
-          Teachers build picture-and-speak activities. Students say the word (or type it).
-          Run a live class with a short join code and see scores as they finish.
+          Teachers build picture-and-speak activities. Students say the word (or type it). Run a live
+          class with a short join code and see scores as they finish.
         </p>
         <div className="mt-10 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center">
           <Link
@@ -58,10 +66,10 @@ export default function Landing() {
             {session ? 'Open my library' : 'Start as a teacher'}
           </Link>
           <Link
-            to="/join"
+            to="/library"
             className="rounded-xl border-2 border-teal-600 px-6 py-3.5 text-base font-semibold text-teal-700 hover:bg-teal-50"
           >
-            I have a class code
+            Browse Shared Library
           </Link>
         </div>
 
@@ -70,12 +78,9 @@ export default function Landing() {
           <ol className="mt-4 list-decimal space-y-2 pl-5 text-sm text-slate-600">
             <li>Sign up with a username (save your recovery code).</li>
             <li>Create a game, add cards with a word + optional picture and hint.</li>
-            <li>Publish — share the play link, or tap <strong>Start class</strong> for a join code.</li>
-            <li>Watch live scores on the class host screen, or open <strong>Scores</strong> later.</li>
+            <li>Publish — share the play link, or Start class for a join code.</li>
+            <li>Optional: list the game in Shared Library so other teachers can copy it.</li>
           </ol>
-          <p className="mt-4 text-xs text-slate-400">
-            Mic works best in Chrome or Edge. Students can always use “Type instead.”
-          </p>
         </div>
 
         <div className="mt-10 grid gap-4 text-left sm:grid-cols-2">
@@ -85,8 +90,8 @@ export default function Landing() {
               desc: 'Picture on screen, student speaks, instant feedback.',
             },
             {
-              title: 'Class join codes',
-              desc: 'One code on the board; whole class plays the same game.',
+              title: 'Shared Library',
+              desc: 'Opt in to share games; other teachers preview and copy.',
             },
             {
               title: 'Live class scores',
