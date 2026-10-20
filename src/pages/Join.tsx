@@ -1,7 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { getActiveSessionByCode, joinSession } from '@/services/sessions'
-import { playUrl } from '@/services/games'
 
 export default function Join() {
   const [params] = useSearchParams()
@@ -34,7 +33,6 @@ export default function Join() {
       }
       setGameTitle(game.title)
       await joinSession(session.id, nickname || 'Student')
-      // Go play the published game
       navigate(`/play/${game.share_slug}`, { replace: true })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not join')
@@ -100,8 +98,7 @@ export default function Join() {
         </form>
 
         <p className="mt-6 text-center text-sm text-slate-400">
-          Have a direct game link instead?{' '}
-          <span className="text-slate-500">Ask your teacher for /play/…</span>
+          Have a direct game link instead? Ask your teacher for /play/…
         </p>
         <p className="mt-4 text-center text-sm">
           <Link to="/" className="text-teal-600 hover:underline">
