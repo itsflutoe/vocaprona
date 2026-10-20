@@ -50,6 +50,7 @@ export interface Game {
   thumbnail_url: string | null
   tracking_mode: TrackingMode
   retention_days: number | null
+  listed_in_library: boolean
   created_at: string
   updated_at: string
 }
@@ -71,6 +72,12 @@ export interface ActivityCard {
 }
 
 export type GameWithCards = Game & { activity_cards?: ActivityCard[] }
+
+export type LibraryGame = Game & {
+  cover_url: string | null
+  author_name?: string | null
+  card_count?: number
+}
 
 export interface CreateGameInput {
   title: string
