@@ -106,7 +106,8 @@ export async function createGame(ownerId: string, input: CreateGameInput): Promi
       subject: input.subject,
       custom_subject: input.subject === 'Other' ? input.custom_subject?.trim() || null : null,
       language: input.language || 'en',
-      tracking_mode: input.tracking_mode || 'none',
+      // Default to class so scores work out of the box
+      tracking_mode: input.tracking_mode || 'class',
       status: 'draft',
       share_enabled: false,
     })
@@ -174,7 +175,6 @@ export async function publishGame(id: string): Promise<Game> {
     if (!slug) throw new Error('Could not generate a unique share link. Try again.')
   }
 
-  // Cover art: first card image if no thumbnail set
   const cover =
     game.thumbnail_url ||
     game.activity_cards.find((c) => c.image_url)?.image_url ||
