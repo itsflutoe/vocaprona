@@ -1,112 +1,72 @@
 import { Link } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
+import { AppHeader, headerBtnGhost, headerBtnPrimary, headerLink } from '@/components/AppHeader'
 
 export default function Landing() {
   const { session } = useAuth()
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-teal-50 to-slate-50">
-      <header className="mx-auto flex max-w-5xl items-center justify-between px-4 py-6">
-        <span className="text-xl font-bold text-teal-700">VocaProna</span>
-        <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
-          <Link
-            to="/library"
-            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-          >
-            Shared Library
-          </Link>
-          <Link
-            to="/join"
-            className="rounded-lg border border-teal-600 bg-white px-3 py-2 text-sm font-medium text-teal-700 hover:bg-teal-50"
-          >
-            Join class
-          </Link>
-          {session ? (
-            <Link
-              to="/dashboard"
-              className="rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white hover:bg-teal-700"
-            >
-              My library
+    <div className="min-h-screen bg-slate-50">
+      <AppHeader
+        right={
+          <>
+            <Link to="/library" className={headerLink(false)}>
+              Library
             </Link>
-          ) : (
-            <>
-              <Link
-                to="/login"
-                className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-              >
-                Log in
+            <Link to="/join" className={headerLink(false)}>
+              Join class
+            </Link>
+            {session ? (
+              <Link to="/dashboard" className={headerBtnPrimary(false)}>
+                My games
               </Link>
-              <Link
-                to="/register"
-                className="rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white hover:bg-teal-700"
-              >
-                Sign up
-              </Link>
-            </>
-          )}
-        </div>
-      </header>
+            ) : (
+              <>
+                <Link to="/login" className={headerBtnGhost(false)}>
+                  Log in
+                </Link>
+                <Link to="/register" className={headerBtnPrimary(false)}>
+                  Sign up
+                </Link>
+              </>
+            )}
+          </>
+        }
+      />
 
-      <main className="mx-auto max-w-3xl px-4 py-12 text-center sm:py-16">
-        <p className="text-sm font-semibold uppercase tracking-wide text-teal-600">
-          Free · No student accounts
-        </p>
-        <h1 className="mt-3 text-3xl font-bold tracking-tight text-slate-900 sm:text-5xl">
-          Speech games for every classroom
+      <main className="mx-auto max-w-3xl px-4 pb-20 pt-16 text-center sm:pt-24">
+        <h1 className="text-4xl font-bold tracking-tight text-slate-900 sm:text-5xl">
+          Speech practice for the classroom
         </h1>
-        <p className="mt-6 text-base text-slate-600 sm:text-lg">
-          Teachers build picture-and-speak activities. Students say the word (or type it). Run a live
-          class with a short join code and see scores as they finish.
+        <p className="mx-auto mt-5 max-w-xl text-lg text-slate-600">
+          Teachers create picture-and-speak games. Students play free — no accounts.
         </p>
         <div className="mt-10 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center">
           <Link
             to={session ? '/dashboard' : '/register'}
-            className="rounded-xl bg-teal-600 px-6 py-3.5 text-base font-semibold text-white shadow-sm hover:bg-teal-700"
+            className="rounded-xl bg-teal-600 px-8 py-3.5 text-base font-semibold text-white shadow-sm hover:bg-teal-700"
           >
-            {session ? 'Open my library' : 'Start as a teacher'}
+            {session ? 'My games' : 'Get started'}
           </Link>
           <Link
-            to="/library"
-            className="rounded-xl border-2 border-teal-600 px-6 py-3.5 text-base font-semibold text-teal-700 hover:bg-teal-50"
+            to="/join"
+            className="rounded-xl border border-slate-300 bg-white px-8 py-3.5 text-base font-semibold text-slate-800 hover:bg-slate-50"
           >
-            Browse Shared Library
+            Join a class
           </Link>
         </div>
 
-        <div className="mt-14 rounded-2xl border border-slate-200 bg-white p-6 text-left shadow-sm">
-          <h2 className="text-lg font-semibold text-slate-900">Quick start for teachers</h2>
-          <ol className="mt-4 list-decimal space-y-2 pl-5 text-sm text-slate-600">
-            <li>Sign up with a username (save your recovery code).</li>
-            <li>Create a game, add cards with a word + optional picture and hint.</li>
-            <li>Publish — share the play link, or Start class for a join code.</li>
-            <li>Optional: list the game in Shared Library so other teachers can copy it.</li>
-          </ol>
-        </div>
-
-        <div className="mt-10 grid gap-4 text-left sm:grid-cols-2">
+        <div className="mt-20 grid gap-4 text-left sm:grid-cols-3">
           {[
-            {
-              title: 'See · speak · check',
-              desc: 'Picture on screen, student speaks, instant feedback.',
-            },
-            {
-              title: 'Shared Library',
-              desc: 'Opt in to share games; other teachers preview and copy.',
-            },
-            {
-              title: 'Live class scores',
-              desc: 'Host screen shows who finished and their results.',
-            },
-            {
-              title: 'No student logins',
-              desc: 'Kids only need a link or a short code.',
-            },
+            { title: 'Create', desc: 'Build short speaking games with images and words.' },
+            { title: 'Play', desc: 'Students speak or type. Instant feedback.' },
+            { title: 'Class', desc: 'Share a code, track scores live.' },
           ].map((item) => (
             <div
               key={item.title}
-              className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
+              className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
             >
-              <h2 className="font-semibold text-slate-800">{item.title}</h2>
+              <h2 className="font-semibold text-slate-900">{item.title}</h2>
               <p className="mt-1 text-sm text-slate-500">{item.desc}</p>
             </div>
           ))}
@@ -114,7 +74,7 @@ export default function Landing() {
       </main>
 
       <footer className="border-t border-slate-200 py-8 text-center text-sm text-slate-400">
-        VocaProna — free educational speech games · MVP ready for classroom trials
+        VocaProna
       </footer>
     </div>
   )
