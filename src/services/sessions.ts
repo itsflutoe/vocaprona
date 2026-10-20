@@ -15,7 +15,6 @@ export async function startSession(
   gameId: string,
   title?: string
 ): Promise<ClassroomSession> {
-  // One active class at a time for this teacher
   await supabase
     .from('classroom_sessions')
     .update({ status: 'ended', ended_at: new Date().toISOString() })
@@ -58,6 +57,27 @@ export async function renameSession(sessionId: string, title: string): Promise<v
     .from('classroom_sessions')
     .update({ title: title.trim() || null })
     .eq('id', sessionId)
+  if (error) throw new Error(error.message)
+}
+
+/** Delete one class session (participants cascade if FK set; attempts keep session_id nullable) */
+export async function deleteSession(sessionId: string): Promise<void> {
+  // Unlink scores first so we don't lose attempt rows if desired — or delete with session
+  await supabase.from('play_attempts').update({ session_id: null }).eq('session_id', sessionId)
+  const { error } = await supabase.from('classroom_sessions').delete().eq('id', sessionId)
+  if (error) throw new Error(error.message)
+}
+
+export async function clearAllMySessions(teacherId: string): Promise<void> {
+  const { data: sessions, error: listErr } = await supabase
+    .from('classroom_sessions')
+    .select('id')
+    .eq('teacher_id', teacherId)
+  if (listErr) throw new Error(listErr.message)
+  const ids = (sessions || []).map((s) => s.id as string)
+  if (ids.length === 0) return
+  await supabase.from('play_attempts').update({ session_id: null }).in('session_id', ids)
+  const { error } = await supabase.from('classroom_sessions').delete().eq('teacher_id', teacherId)
   if (error) throw new Error(error.message)
 }
 
@@ -129,7 +149,6 @@ export async function getMyActiveSession(teacherId: string): Promise<SessionWith
   return data as SessionWithGame | null
 }
 
-/** Recent sessions for this teacher (active + ended history) */
 export async function listMySessions(teacherId: string, limit = 30): Promise<SessionWithGame[]> {
   const { data, error } = await supabase
     .from('classroom_sessions')
