@@ -14,6 +14,7 @@ import Results from '@/pages/Results'
 import Classes from '@/pages/Classes'
 import SharedLibrary from '@/pages/SharedLibrary'
 import LibraryPreview from '@/pages/LibraryPreview'
+import Guide from '@/pages/Guide'
 
 export default function App() {
   return (
@@ -21,6 +22,7 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Landing />} />
+          <Route path="/guide" element={<Guide />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/recover" element={<Recover />} />
