@@ -165,7 +165,6 @@ export default function Dashboard() {
                 key={game.id}
                 className="group relative flex flex-col overflow-hidden rounded-xl bg-slate-900 shadow-lg ring-1 ring-white/10 transition hover:-translate-y-1 hover:ring-teal-400/50"
               >
-                {/* Cover — 1:1 square */}
                 <Link
                   to={`/dashboard/games/${game.id}`}
                   className="relative block aspect-square overflow-hidden"
@@ -212,6 +211,12 @@ export default function Dashboard() {
                     className="rounded-md bg-white/10 py-1.5 text-center text-xs font-medium text-white hover:bg-white/15"
                   >
                     Edit
+                  </Link>
+                  <Link
+                    to={`/dashboard/games/${game.id}/scores`}
+                    className="rounded-md bg-white/5 py-1.5 text-center text-xs font-medium text-slate-300 hover:bg-white/10 hover:text-white"
+                  >
+                    Scores
                   </Link>
                   {game.status === 'published' && (
                     <>
