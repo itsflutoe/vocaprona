@@ -5,6 +5,8 @@ import {
   getSession,
   joinUrl,
   listParticipants,
+  renameSession,
+  sessionDisplayName,
 } from '@/services/sessions'
 import { playUrl } from '@/services/games'
 import { listAttemptsForSession, type PlayAttempt } from '@/services/scores'
@@ -19,6 +21,8 @@ export default function SessionHost() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [ending, setEnding] = useState(false)
+  const [editTitle, setEditTitle] = useState('')
+  const [savingTitle, setSavingTitle] = useState(false)
 
   const refresh = useCallback(async () => {
     if (!id) return
@@ -30,6 +34,7 @@ export default function SessionHost() {
         return
       }
       setSession(s)
+      setEditTitle(s.title || '')
       const [list, scores] = await Promise.all([
         listParticipants(id),
         listAttemptsForSession(id).catch(() => [] as PlayAttempt[]),
@@ -67,6 +72,19 @@ export default function SessionHost() {
     }
   }
 
+  async function handleSaveTitle() {
+    if (!id) return
+    setSavingTitle(true)
+    try {
+      await renameSession(id, editTitle)
+      await refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not rename')
+    } finally {
+      setSavingTitle(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-950">
@@ -89,7 +107,6 @@ export default function SessionHost() {
   const game = session.games
   const isActive = session.status === 'active'
 
-  // Latest attempt per player label
   const latestByPlayer = new Map<string, PlayAttempt>()
   for (const a of [...attempts].reverse()) {
     const key = (a.player_label || 'Anonymous').toLowerCase()
@@ -99,10 +116,15 @@ export default function SessionHost() {
   return (
     <div className="min-h-screen bg-slate-950 text-white">
       <header className="border-b border-white/10">
-        <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-4">
-          <Link to="/dashboard" className="text-sm text-teal-400 hover:underline">
-            ← Library
-          </Link>
+        <div className="mx-auto flex max-w-3xl items-center justify-between gap-2 px-4 py-4">
+          <div className="flex gap-3 text-sm">
+            <Link to="/dashboard" className="text-teal-400 hover:underline">
+              ← Library
+            </Link>
+            <Link to="/dashboard/classes" className="text-slate-400 hover:text-white">
+              All classes
+            </Link>
+          </div>
           <span
             className={`rounded-full px-2 py-0.5 text-xs font-bold uppercase ${
               isActive ? 'bg-teal-500 text-slate-950' : 'bg-slate-700 text-slate-300'
@@ -114,25 +136,63 @@ export default function SessionHost() {
       </header>
 
       <main className="mx-auto max-w-3xl px-4 py-10">
-        <p className="text-center text-sm text-slate-400">Students join with this code</p>
-        <div className="mt-4 rounded-3xl bg-white px-6 py-10 text-center text-slate-900 shadow-2xl">
-          <p className="text-sm font-medium text-slate-500">{game?.title || 'Game'}</p>
-          <p className="mt-4 font-mono text-6xl font-black tracking-[0.25em] text-teal-700 sm:text-7xl">
-            {session.join_code}
-          </p>
-          <p className="mt-4 text-sm text-slate-500">
-            Go to <strong className="text-slate-800">vocaprona.vercel.app/join</strong>
-          </p>
-          {isActive && (
+        {/* Class name */}
+        <div className="mb-6 rounded-xl border border-white/10 bg-white/5 p-4">
+          <label className="text-xs font-medium uppercase tracking-wide text-slate-400">
+            Class name
+          </label>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <input
+              value={editTitle}
+              onChange={(e) => setEditTitle(e.target.value)}
+              placeholder={sessionDisplayName(session)}
+              className="min-w-0 flex-1 rounded-lg border border-white/15 bg-slate-900 px-3 py-2 text-white placeholder:text-slate-500 focus:border-teal-500 focus:outline-none"
+              maxLength={80}
+            />
             <button
               type="button"
-              onClick={() => navigator.clipboard?.writeText(joinUrl(session.join_code))}
-              className="mt-4 text-sm text-teal-600 hover:underline"
+              disabled={savingTitle}
+              onClick={() => void handleSaveTitle()}
+              className="rounded-lg bg-white/10 px-4 py-2 text-sm font-medium hover:bg-white/15 disabled:opacity-60"
             >
-              Copy join link
+              {savingTitle ? 'Saving…' : 'Save name'}
             </button>
-          )}
+          </div>
         </div>
+
+        {isActive ? (
+          <>
+            <p className="text-center text-sm text-slate-400">Students join with this code</p>
+            <div className="mt-4 rounded-3xl bg-white px-6 py-10 text-center text-slate-900 shadow-2xl">
+              <p className="text-sm font-medium text-slate-500">{game?.title || 'Game'}</p>
+              <p className="mt-4 font-mono text-6xl font-black tracking-[0.25em] text-teal-700 sm:text-7xl">
+                {session.join_code}
+              </p>
+              <p className="mt-4 text-sm text-slate-500">
+                Go to <strong className="text-slate-800">vocaprona.vercel.app/join</strong>
+              </p>
+              <button
+                type="button"
+                onClick={() => navigator.clipboard?.writeText(joinUrl(session.join_code))}
+                className="mt-4 text-sm text-teal-600 hover:underline"
+              >
+                Copy join link
+              </button>
+            </div>
+            <p className="mt-4 text-center text-xs text-slate-500">
+              You can leave this page and come back anytime from <strong>My classes</strong> or the
+              yellow banner on the library — until you end the class.
+            </p>
+          </>
+        ) : (
+          <div className="rounded-2xl border border-white/10 bg-white/5 px-6 py-8 text-center">
+            <p className="text-lg font-semibold">{sessionDisplayName(session)}</p>
+            <p className="mt-2 text-sm text-slate-400">
+              Ended {session.ended_at ? new Date(session.ended_at).toLocaleString() : ''}
+            </p>
+            <p className="mt-1 text-sm text-slate-500">{game?.title}</p>
+          </div>
+        )}
 
         {error && (
           <div className="mt-6 rounded-lg bg-red-500/10 px-4 py-3 text-sm text-red-300">{error}</div>
@@ -140,12 +200,14 @@ export default function SessionHost() {
 
         <section className="mt-10">
           <div className="flex items-center justify-between gap-2">
-            <h2 className="text-lg font-semibold">Class roster</h2>
-            <p className="text-xs text-slate-500">Updates every few seconds</p>
+            <h2 className="text-lg font-semibold">Roster & scores</h2>
+            {isActive && <p className="text-xs text-slate-500">Updates every few seconds</p>}
           </div>
 
           {participants.length === 0 && attempts.length === 0 ? (
-            <p className="mt-3 text-sm text-slate-400">Waiting for students…</p>
+            <p className="mt-3 text-sm text-slate-400">
+              {isActive ? 'Waiting for students…' : 'No one joined this class.'}
+            </p>
           ) : (
             <ul className="mt-3 space-y-2">
               {participants.map((p) => {
@@ -161,16 +223,16 @@ export default function SessionHost() {
                         {score.correct_count}/{score.total_cards} done
                       </span>
                     ) : (
-                      <span className="text-sm text-slate-500">Playing…</span>
+                      <span className="text-sm text-slate-500">
+                        {isActive ? 'Playing…' : 'No score'}
+                      </span>
                     )}
                   </li>
                 )
               })}
-              {/* Scores from players not in participant list (edge cases) */}
               {[...latestByPlayer.entries()]
                 .filter(
-                  ([key]) =>
-                    !participants.some((p) => p.nickname.toLowerCase() === key)
+                  ([key]) => !participants.some((p) => p.nickname.toLowerCase() === key)
                 )
                 .map(([key, score]) => (
                   <li
@@ -214,10 +276,10 @@ export default function SessionHost() {
           ) : (
             <button
               type="button"
-              onClick={() => navigate('/dashboard')}
+              onClick={() => navigate('/dashboard/classes')}
               className="rounded-lg border border-white/20 px-5 py-2.5 font-medium text-slate-200 hover:bg-white/5"
             >
-              Back to library
+              Back to my classes
             </button>
           )}
         </div>
