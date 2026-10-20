@@ -5,6 +5,7 @@ import type {
   CreateGameInput,
   Game,
   GameWithCards,
+  LibraryGame,
 } from '@/types'
 
 function randomSlug(len = 8): string {
@@ -16,17 +17,24 @@ function randomSlug(len = 8): string {
   return out
 }
 
+/** Only the signed-in teacher's games — never all published games */
 export async function listMyGames(): Promise<Game[]> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return []
+
   const { data, error } = await supabase
     .from('games')
     .select('*')
+    .eq('owner_id', user.id)
+    .order('subject', { ascending: true })
     .order('updated_at', { ascending: false })
 
   if (error) throw new Error(error.message)
   return (data || []) as Game[]
 }
 
-/** Games with a cover image: thumbnail or first activity card image */
 export async function listMyGamesWithCovers(): Promise<(Game & { cover_url: string | null })[]> {
   const games = await listMyGames()
   if (games.length === 0) return []
@@ -49,6 +57,64 @@ export async function listMyGamesWithCovers(): Promise<(Game & { cover_url: stri
   return games.map((g) => ({
     ...g,
     cover_url: g.thumbnail_url || firstImage.get(g.id) || null,
+  }))
+}
+
+/** Published games other teachers opted into the shared Library */
+export async function listLibraryGames(): Promise<LibraryGame[]> {
+  const { data: games, error } = await supabase
+    .from('games')
+    .select('*')
+    .eq('status', 'published')
+    .eq('listed_in_library', true)
+    .order('subject', { ascending: true })
+    .order('title', { ascending: true })
+
+  if (error) throw new Error(error.message)
+  const list = (games || []) as Game[]
+  if (list.length === 0) return []
+
+  const ids = list.map((g) => g.id)
+  const ownerIds = [...new Set(list.map((g) => g.owner_id))]
+
+  const [{ data: cards }, { data: profiles }] = await Promise.all([
+    supabase
+      .from('activity_cards')
+      .select('game_id, image_url, order_index')
+      .in('game_id', ids)
+      .order('order_index', { ascending: true }),
+    supabase.from('profiles').select('id, display_name, username').in('id', ownerIds),
+  ])
+
+  const firstImage = new Map<string, string>()
+  const cardCount = new Map<string, number>()
+  for (const c of cards || []) {
+    cardCount.set(c.game_id, (cardCount.get(c.game_id) || 0) + 1)
+    if (c.image_url && !firstImage.has(c.game_id)) {
+      firstImage.set(c.game_id, c.image_url as string)
+    }
+  }
+
+  // Recount properly — the select may only return rows with images if filtered; recount all cards
+  const { data: allCounts } = await supabase
+    .from('activity_cards')
+    .select('game_id')
+    .in('game_id', ids)
+  const counts = new Map<string, number>()
+  for (const row of allCounts || []) {
+    counts.set(row.game_id, (counts.get(row.game_id) || 0) + 1)
+  }
+
+  const author = new Map<string, string>()
+  for (const p of profiles || []) {
+    author.set(p.id, (p.display_name || p.username) as string)
+  }
+
+  return list.map((g) => ({
+    ...g,
+    cover_url: g.thumbnail_url || firstImage.get(g.id) || null,
+    author_name: author.get(g.owner_id) || 'Teacher',
+    card_count: counts.get(g.id) || 0,
   }))
 }
 
@@ -106,10 +172,10 @@ export async function createGame(ownerId: string, input: CreateGameInput): Promi
       subject: input.subject,
       custom_subject: input.subject === 'Other' ? input.custom_subject?.trim() || null : null,
       language: input.language || 'en',
-      // Default to class so scores work out of the box
       tracking_mode: input.tracking_mode || 'class',
       status: 'draft',
       share_enabled: false,
+      listed_in_library: false,
     })
     .select()
     .single()
@@ -134,6 +200,7 @@ export async function updateGame(
       | 'tracking_mode'
       | 'retention_days'
       | 'thumbnail_url'
+      | 'listed_in_library'
     >
   >
 ): Promise<Game> {
@@ -192,7 +259,54 @@ export async function unpublishGame(id: string): Promise<Game> {
   return updateGame(id, {
     status: 'draft',
     share_enabled: false,
+    listed_in_library: false,
   })
+}
+
+/** Copy a library (or any readable) game into the current teacher's library as a draft */
+export async function remixGameToMyLibrary(sourceGameId: string, ownerId: string): Promise<Game> {
+  const source = await getGame(sourceGameId)
+  if (!source) throw new Error('Game not found')
+  if (source.owner_id === ownerId) {
+    throw new Error('This game is already in your library.')
+  }
+  // Allow remix if owner, or published+share, or listed in library
+  const allowed =
+    source.owner_id === ownerId ||
+    (source.status === 'published' && source.share_enabled) ||
+    source.listed_in_library
+  if (!allowed) throw new Error('You cannot copy this game.')
+
+  const created = await createGame(ownerId, {
+    title: source.title,
+    description: source.description || undefined,
+    subject: source.subject,
+    custom_subject: source.custom_subject || undefined,
+    language: source.language,
+    tracking_mode: source.tracking_mode,
+  })
+
+  if (source.thumbnail_url) {
+    await updateGame(created.id, { thumbnail_url: source.thumbnail_url })
+  }
+
+  const cards = source.activity_cards || []
+  for (const c of cards) {
+    await addCard(created.id, {
+      type: c.type,
+      prompt: c.prompt || undefined,
+      image_url: c.image_url || undefined,
+      image_alt: c.image_alt || undefined,
+      target_text: c.target_text || undefined,
+      accepted_answers: c.accepted_answers || [],
+      missing_letter_indices: c.missing_letter_indices || undefined,
+      hints: c.hints || [],
+      config: c.config || {},
+      order_index: c.order_index,
+    })
+  }
+
+  return (await getGame(created.id)) as Game
 }
 
 export async function addCard(gameId: string, input: CreateCardInput): Promise<ActivityCard> {
@@ -268,4 +382,19 @@ export function playUrl(slug: string): string {
     return `${window.location.origin}/play/${slug}`
   }
   return `/play/${slug}`
+}
+
+/** Group games by subject for library-style sections */
+export function groupGamesBySubject<T extends { subject: string }>(
+  games: T[]
+): { subject: string; games: T[] }[] {
+  const map = new Map<string, T[]>()
+  for (const g of games) {
+    const key = g.subject || 'Other'
+    if (!map.has(key)) map.set(key, [])
+    map.get(key)!.push(g)
+  }
+  return [...map.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([subject, list]) => ({ subject, games: list }))
 }
