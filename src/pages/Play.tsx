@@ -30,6 +30,9 @@ export default function Play() {
   const [correctCount, setCorrectCount] = useState(0)
   const [playerName, setPlayerName] = useState('')
   const [scoreSaved, setScoreSaved] = useState(false)
+  const [showHint, setShowHint] = useState(false)
+  const [showType, setShowType] = useState(false)
+  const [typed, setTyped] = useState('')
 
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null)
   const advancingRef = useRef(false)
@@ -73,6 +76,13 @@ export default function Play() {
     return [...new Set(list.map((s) => s.trim()).filter(Boolean))]
   }, [])
 
+  const cardHint = useCallback((c: ActivityCard | undefined): string | null => {
+    if (!c) return null
+    if (c.prompt?.trim()) return c.prompt.trim()
+    if (c.hints?.length) return c.hints.filter(Boolean).join(' · ')
+    return null
+  }, [])
+
   const setupRecognition = useCallback(() => {
     const Ctor = getSpeechRecognitionCtor()
     if (!Ctor) return null
@@ -82,6 +92,15 @@ export default function Play() {
     rec.interimResults = false
     rec.maxAlternatives = 5
     return rec
+  }, [])
+
+  const resetCardUi = useCallback(() => {
+    setFeedback('')
+    setFeedbackOk(null)
+    setHeard('—')
+    setShowHint(false)
+    setShowType(false)
+    setTyped('')
   }, [])
 
   const saveScore = useCallback(
@@ -114,6 +133,7 @@ export default function Play() {
     setCorrectCount(correctRef.current)
     setFeedback('✅ Correct!')
     setFeedbackOk(true)
+    setShowType(false)
     setTimeout(() => {
       setIndex((i) => {
         const next = i + 1
@@ -122,9 +142,7 @@ export default function Play() {
           setScreen('complete')
           return i
         }
-        setFeedback('')
-        setFeedbackOk(null)
-        setHeard('—')
+        resetCardUi()
         advancingRef.current = false
         return next
       })
@@ -132,7 +150,7 @@ export default function Play() {
         advancingRef.current = false
       }, 100)
     }, 900)
-  }, [cards.length, saveScore])
+  }, [cards.length, saveScore, resetCardUi])
 
   const handleTranscripts = useCallback(
     (alts: string[]) => {
@@ -156,6 +174,24 @@ export default function Play() {
     [card, acceptedFor, onCorrect]
   )
 
+  function handleTypeCheck() {
+    if (!card || advancingRef.current) return
+    const val = typed.trim()
+    if (!val) {
+      setFeedback('Type an answer first')
+      setFeedbackOk(false)
+      return
+    }
+    setHeard(val)
+    const { matched } = checkSpokenAnswer([val], acceptedFor(card))
+    if (matched) {
+      onCorrect()
+    } else {
+      setFeedback('❌ Not quite — try again')
+      setFeedbackOk(false)
+    }
+  }
+
   const stopListening = useCallback(() => {
     try {
       recognitionRef.current?.stop()
@@ -167,8 +203,9 @@ export default function Play() {
 
   const startListening = useCallback(async () => {
     if (!speechOk) {
-      setFeedback('Speech needs Chrome or Edge on this device.')
+      setFeedback('Speech needs Chrome or Edge. You can type instead.')
       setFeedbackOk(false)
+      setShowType(true)
       return
     }
     if (listening) {
@@ -179,8 +216,9 @@ export default function Play() {
 
     const ok = micOk || (await requestMicPermission())
     if (!ok) {
-      setFeedback('❌ Please allow microphone access')
+      setFeedback('❌ Mic blocked — type your answer below')
       setFeedbackOk(false)
+      setShowType(true)
       return
     }
     setMicOk(true)
@@ -205,13 +243,14 @@ export default function Play() {
       setListening(false)
       const err = event.error || ''
       if (err === 'not-allowed') {
-        setFeedback('❌ Please allow microphone access')
+        setFeedback('❌ Mic blocked — type your answer')
         setFeedbackOk(false)
+        setShowType(true)
       } else if (err === 'no-speech') {
-        setFeedback("❌ Didn't catch that. Tap mic and try again!")
+        setFeedback("❌ Didn't catch that. Try mic again or type.")
         setFeedbackOk(false)
       } else if (err !== 'aborted') {
-        setFeedback('❌ Try again')
+        setFeedback('❌ Try again or type your answer')
         setFeedbackOk(false)
       }
     }
@@ -240,8 +279,9 @@ export default function Play() {
         try {
           fresh.start()
         } catch {
-          setFeedback('❌ Please try again')
+          setFeedback('❌ Mic failed — type your answer')
           setFeedbackOk(false)
+          setShowType(true)
         }
       }
     }
@@ -250,14 +290,14 @@ export default function Play() {
   useEffect(() => {
     if (screen !== 'game') return
     const onKey = (e: KeyboardEvent) => {
-      if (e.code === 'Space') {
+      if (e.code === 'Space' && !showType) {
         e.preventDefault()
         void startListening()
       }
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [screen, startListening])
+  }, [screen, startListening, showType])
 
   async function handleStart() {
     if (tracking === 'class' && !playerName.trim()) {
@@ -268,9 +308,7 @@ export default function Play() {
     const ok = await requestMicPermission()
     setMicOk(ok)
     setIndex(0)
-    setFeedback('')
-    setFeedbackOk(null)
-    setHeard('—')
+    resetCardUi()
     correctRef.current = 0
     setCorrectCount(0)
     setScoreSaved(false)
@@ -281,9 +319,7 @@ export default function Play() {
 
   function handleRestart() {
     setIndex(0)
-    setFeedback('')
-    setFeedbackOk(null)
-    setHeard('—')
+    resetCardUi()
     correctRef.current = 0
     setCorrectCount(0)
     setScoreSaved(false)
@@ -311,14 +347,14 @@ export default function Play() {
   }
 
   const progressPct = cards.length ? (index / cards.length) * 100 : 0
-  const prompt =
-    card?.prompt ||
-    (card?.type === 'listening'
-      ? 'Listen, then say what you heard'
+  const instruction =
+    card?.type === 'listening'
+      ? 'Listen, then say or type what you heard'
       : card?.type === 'sentence'
         ? 'Read the sentence out loud'
-        : 'Say the word!')
+        : 'Say the word!'
 
+  const hintText = cardHint(card)
   const masked =
     card && (card.type === 'picture_missing_letters' || card.type === 'speech')
       ? formatMaskedWord(card.target_text || '', card.missing_letter_indices)
@@ -338,7 +374,7 @@ export default function Play() {
         </span>
       </div>
 
-      <div className="mx-auto max-w-lg px-4 py-6">
+      <div className="mx-auto max-w-lg px-4 py-6 pb-10">
         {screen === 'home' && (
           <div className="rounded-3xl bg-white p-6 text-center text-slate-900 shadow-xl sm:p-8">
             <p className="text-xs font-bold uppercase tracking-widest text-teal-600">VocaProna</p>
@@ -348,11 +384,11 @@ export default function Play() {
               {game.description ? ` · ${game.description}` : ''}
             </p>
             <p className="mt-4 text-slate-600">
-              {cards.length} {cards.length === 1 ? 'card' : 'cards'} · Speak your answers!
+              {cards.length} {cards.length === 1 ? 'card' : 'cards'} · Speak or type!
             </p>
             {!speechOk && (
               <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
-                Tip: use <strong>Chrome</strong> or <strong>Edge</strong> for the microphone.
+                Mic needs <strong>Chrome</strong> or <strong>Edge</strong>. You can still type answers.
               </p>
             )}
             {(tracking === 'class' || tracking === 'anonymous') && (
@@ -386,7 +422,7 @@ export default function Play() {
 
         {screen === 'game' && card && (
           <div className="rounded-3xl bg-white p-5 text-center text-slate-900 shadow-xl sm:p-6">
-            <h2 className="text-lg font-semibold text-slate-800">{prompt}</h2>
+            <h2 className="text-lg font-semibold text-slate-800">{instruction}</h2>
 
             <div className="mx-auto mt-5 aspect-square w-full max-w-xs overflow-hidden rounded-2xl bg-slate-100">
               {card.image_url ? (
@@ -413,6 +449,7 @@ export default function Play() {
             {card.type === 'sentence' && card.target_text && (
               <p className="mt-4 text-xl font-semibold text-slate-800">{card.target_text}</p>
             )}
+
             {card.type === 'listening' && (
               <button
                 type="button"
@@ -423,7 +460,24 @@ export default function Play() {
               </button>
             )}
 
-            <div className="mt-8">
+            {/* Hint — uses prompt / hints from editor */}
+            {hintText && (
+              <div className="mt-4">
+                {!showHint ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowHint(true)}
+                    className="rounded-full border border-amber-300 bg-amber-50 px-4 py-1.5 text-sm font-medium text-amber-900 hover:bg-amber-100"
+                  >
+                    💡 Hint
+                  </button>
+                ) : (
+                  <p className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900">{hintText}</p>
+                )}
+              </div>
+            )}
+
+            <div className="mt-6">
               <button
                 type="button"
                 onClick={() => void startListening()}
@@ -437,14 +491,50 @@ export default function Play() {
                 {listening ? '⏹' : '🎤'}
               </button>
               <p className="mt-3 text-sm text-slate-500">
-                Tap the mic or press{' '}
-                <kbd className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs">Space</kbd>
+                Tap mic
+                {!showType && (
+                  <>
+                    {' '}or <kbd className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs">Space</kbd>
+                  </>
+                )}
               </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowType((v) => !v)
+                  setFeedback('')
+                }}
+                className="mt-2 text-sm font-medium text-teal-700 hover:underline"
+              >
+                {showType ? 'Hide keyboard' : 'Type instead'}
+              </button>
             </div>
+
+            {showType && (
+              <div className="mt-4 flex gap-2">
+                <input
+                  value={typed}
+                  onChange={(e) => setTyped(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleTypeCheck()
+                  }}
+                  className="min-w-0 flex-1 rounded-xl border border-slate-300 px-3 py-3 text-base focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                  placeholder="Type the word"
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  onClick={handleTypeCheck}
+                  className="rounded-xl bg-teal-600 px-4 py-3 font-semibold text-white hover:bg-teal-700"
+                >
+                  Check
+                </button>
+              </div>
+            )}
 
             <div className="mt-6 rounded-xl bg-slate-50 px-4 py-3">
               <span className="text-xs font-medium uppercase tracking-wide text-slate-400">
-                I heard
+                I heard / you typed
               </span>
               <p className="mt-0.5 text-lg font-medium text-slate-800">{heard}</p>
             </div>
@@ -479,11 +569,7 @@ export default function Play() {
                 >
                   <span className="font-bold text-teal-600">{i + 1}</span>
                   {c.image_url ? (
-                    <img
-                      src={c.image_url}
-                      alt=""
-                      className="h-10 w-10 rounded-lg object-cover"
-                    />
+                    <img src={c.image_url} alt="" className="h-10 w-10 rounded-lg object-cover" />
                   ) : (
                     <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-200">
                       🎤
