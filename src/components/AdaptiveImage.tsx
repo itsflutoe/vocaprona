@@ -1,10 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 
 type Props = {
   src?: string | null
   alt?: string
   /** Shown when no src or load fails */
-  fallback?: React.ReactNode
+  fallback?: ReactNode
   className?: string
   /** Max height so tall images don't dominate (px). Default 360 */
   maxHeight?: number
