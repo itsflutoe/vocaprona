@@ -16,6 +16,7 @@ import {
   type SpeechRecognitionLike,
 } from '@/lib/speech'
 import { playComplete, playCorrect, playWrong } from '@/lib/sounds'
+import { AdaptiveImage } from '@/components/AdaptiveImage'
 import type { ActivityCard, GameWithCards } from '@/types'
 
 export default function Play() {
@@ -451,21 +452,14 @@ export default function Play() {
           <div className="rounded-3xl bg-white p-5 text-center text-slate-900 shadow-xl sm:p-6">
             <h2 className="text-lg font-semibold text-slate-800">{instruction}</h2>
 
-            <div className="mx-auto mt-5 aspect-square w-full max-w-xs overflow-hidden rounded-2xl bg-slate-100">
-              {card.image_url ? (
-                <img
-                  src={card.image_url}
-                  alt={card.image_alt || card.target_text || 'Card'}
-                  className="h-full w-full object-cover"
-                  onError={(e) => {
-                    ;(e.target as HTMLImageElement).style.display = 'none'
-                  }}
-                />
-              ) : (
-                <div className="flex h-full items-center justify-center text-6xl" aria-hidden>
-                  {card.type === 'listening' ? '🔊' : card.type === 'sentence' ? '📖' : '🎤'}
-                </div>
-              )}
+            <div className="mt-5">
+              <AdaptiveImage
+                src={card.image_url}
+                alt={card.image_alt || card.target_text || 'Card'}
+                fallback={
+                  card.type === 'listening' ? '🔊' : card.type === 'sentence' ? '📖' : '🎤'
+                }
+              />
             </div>
 
             {masked && (
