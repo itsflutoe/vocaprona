@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import { getGame, remixGameToMyLibrary } from '@/services/games'
 import { AppHeader, headerLink } from '@/components/AppHeader'
+import { AdaptiveImage } from '@/components/AdaptiveImage'
 import { ACTIVITY_TYPE_LABELS, type GameWithCards } from '@/types'
 
 export default function LibraryPreview() {
@@ -96,16 +97,13 @@ export default function LibraryPreview() {
 
       <main className="mx-auto max-w-3xl px-4 py-8">
         <div className="flex flex-col gap-6 sm:flex-row">
-          <div className="aspect-square w-full max-w-xs shrink-0 overflow-hidden rounded-2xl bg-slate-800">
-            {game.thumbnail_url || cards[0]?.image_url ? (
-              <img
-                src={game.thumbnail_url || cards[0]?.image_url || ''}
-                alt=""
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              <div className="flex h-full items-center justify-center text-5xl text-slate-600">🎤</div>
-            )}
+          <div className="w-full max-w-xs shrink-0">
+            <AdaptiveImage
+              src={game.thumbnail_url || cards[0]?.image_url}
+              alt=""
+              maxHeight={320}
+              className="bg-slate-800"
+            />
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-sm font-medium text-teal-400">{game.subject}</p>
@@ -144,13 +142,12 @@ export default function LibraryPreview() {
           <ul className="mt-4 grid gap-3 sm:grid-cols-2">
             {cards.map((c, i) => (
               <li key={c.id} className="overflow-hidden rounded-xl border border-white/10 bg-white/5">
-                <div className="aspect-square bg-slate-800">
-                  {c.image_url ? (
-                    <img src={c.image_url} alt="" className="h-full w-full object-cover" />
-                  ) : (
-                    <div className="flex h-full items-center justify-center text-3xl text-slate-600">🎤</div>
-                  )}
-                </div>
+                <AdaptiveImage
+                  src={c.image_url}
+                  alt=""
+                  maxHeight={200}
+                  className="rounded-none max-w-none bg-slate-800"
+                />
                 <div className="p-3">
                   <p className="text-xs uppercase tracking-wide text-teal-400">
                     {i + 1}. {ACTIVITY_TYPE_LABELS[c.type]}
