@@ -13,6 +13,7 @@ import {
   updateGame,
 } from '@/services/games'
 import { buildAcceptedAnswers } from '@/lib/answers'
+import { AdaptiveImage } from '@/components/AdaptiveImage'
 import {
   ACTIVITY_TYPE_LABELS,
   SUBJECTS,
@@ -430,13 +431,12 @@ export default function GameEditor() {
               <ul className="grid gap-3 sm:grid-cols-2">
                 {cards.map((card, i) => (
                   <li key={card.id} className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-                    <div className="aspect-square w-full bg-slate-100">
-                      {card.image_url ? (
-                        <img src={card.image_url} alt="" className="h-full w-full object-cover" />
-                      ) : (
-                        <div className="flex h-full items-center justify-center text-4xl text-slate-300">🎤</div>
-                      )}
-                    </div>
+                    <AdaptiveImage
+                      src={card.image_url}
+                      alt=""
+                      maxHeight={220}
+                      className="rounded-none max-w-none"
+                    />
                     <div className="flex items-start justify-between gap-2 p-3">
                       <div className="min-w-0">
                         <p className="text-xs font-medium uppercase tracking-wide text-teal-700">
@@ -511,6 +511,12 @@ export default function GameEditor() {
                     className="w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
                     placeholder="https://…"
                   />
+                  {cardImage.trim() && (
+                    <div className="mt-3">
+                      <p className="mb-1 text-xs text-slate-500">Preview (adapts to image ratio)</p>
+                      <AdaptiveImage src={cardImage.trim()} alt="Preview" maxHeight={240} />
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label className="mb-1 block text-sm font-medium text-slate-700">Also accept (optional)</label>
